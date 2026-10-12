@@ -24,6 +24,17 @@ for (const p of equipo) {
 }
 if (!equipo.some((p) => p.role === 'admin')) throw new Error('Al menos una persona debe tener role "admin"');
 
+// Cuentas (clientes), opcional: seed/cuentas.local.json, también fuera de git. Cada cuenta nace como si se creara
+// desde la app: equipo vacío (lo asigna Dirección) y dos listas, la de redes del mes actual y la de diseño.
+const RUTA_CUENTAS = 'seed/cuentas.local.json';
+const cuentas = existsSync(RUTA_CUENTAS) ? JSON.parse(readFileSync(RUTA_CUENTAS, 'utf8')).cuentas || [] : [];
+for (const c of cuentas) {
+	if (!/^[a-z0-9-]+$/.test(c.id || '') || !c.name) throw new Error(`Cuenta inválida: ${c.id}`);
+	if (c.drive && !/^https:\/\/drive\.google\.com\//.test(c.drive)) throw new Error(`Enlace de Drive inválido en ${c.id}`);
+}
+const mes = new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+const listaMes = mes.charAt(0).toUpperCase() + mes.slice(1);
+
 const entidades = [
 	...equipo.map((p, i) => ['user', p.id, {
 		id: p.id, name: p.name, role: p.role || '', email: p.email.toLowerCase(), aprueba: !!p.aprueba, hue: i, cap: p.cap || 6,
@@ -31,6 +42,11 @@ const entidades = [
 	...Object.entries(base.stat).map(([k, v]) => ['stat', k, { v }]),
 	['cols', 'main', { cols: base.cols }],
 	...base.autos.map((a) => ['auto', a.id, a]),
+	...cuentas.flatMap((c, i) => [
+		['account', c.id, { id: c.id, name: c.name, team: { admin: '', community: '', diseno: '' }, hue: i, ...(c.drive ? { drive: c.drive } : {}) }],
+		['list', `l-${c.id}-redes`, { id: `l-${c.id}-redes`, acc: c.id, type: 'redes', name: listaMes }],
+		['list', `l-${c.id}-diseno`, { id: `l-${c.id}-diseno`, acc: c.id, type: 'diseno', name: 'Diseño' }],
+	]),
 ];
 
 const q = (s) => "'" + String(s).replace(/'/g, "''") + "'";
@@ -52,7 +68,7 @@ try {
 	const donde = remoto ? '--remote' : '--local';
 	wrangler('d1', 'migrations', 'apply', 'eureka-hub-db', donde);
 	wrangler('d1', 'execute', 'eureka-hub-db', donde, `--file=${archivo}`, '--yes');
-	console.log(`Listo: ${equipo.length} personas y la configuración base en la base ${remoto ? 'de PRODUCCIÓN' : 'local'} (lo que ya existía no se tocó).`);
+	console.log(`Listo: ${equipo.length} personas, ${cuentas.length} cuentas y la configuración base en la base ${remoto ? 'de PRODUCCIÓN' : 'local'} (lo que ya existía no se tocó).`);
 } finally {
 	rmSync(archivo, { force: true });
 }

@@ -56,7 +56,9 @@ El equipo real vive en `seed/equipo.local.json`, que **nunca** se commitea:
 - `role`: `admin`, `community`, `diseno` o `""` (por definir). Al menos una persona debe ser `admin`.
 - La carga es repetible: lo que ya existe no se sobrescribe.
 - Local: `npm run seed:equipo`. Producción: `npm run seed:equipo -- --remote`.
-- Ya con la app en uso, Dirección agrega personas desde la pantalla **Equipo**. El mismo correo debe estar en la política de Cloudflare Access.
+- Ya con la app en uso, Dirección agrega personas desde la pantalla **Equipo**. Con la conexión automática configurada (abajo), su correo se agrega solo a la política de Cloudflare Access; si no, la app avisa que falta hacerlo a mano.
+
+Las cuentas (clientes) se cargan igual desde `seed/cuentas.local.json`, también fuera de git: `{ "cuentas": [ { "id": "a-cliente", "name": "Cliente", "drive": "https://drive.google.com/drive/folders/…" } ] }`. Cada una nace con dos listas (redes del mes y diseño) y el equipo sin asignar.
 
 ## Cloudflare Access
 
@@ -71,6 +73,14 @@ npx wrangler secret put ACCESS_AUD
 - `ACCESS_AUD`: la etiqueta AUD de la aplicación de Access del Worker.
 
 Sin ellos, la API falla cerrado: nadie ve datos.
+
+### Conexión automática con la política de Access
+
+Cuando Dirección agrega o cambia a alguien en **Equipo**, el Worker deja la lista de correos de la política de Access igual a la del equipo (conserva el resto de la política). Necesita tres secretos:
+
+- `CF_ACCOUNT_ID`: id de la cuenta de Cloudflare.
+- `ACCESS_POLITICA_ID`: id de la política reutilizable de Access de la app.
+- `CF_API_TOKEN`: token de API con **un solo permiso**: *Account · Access: Apps and Policies · Edit*, limitado a esta cuenta. Lo crea Dirección en el dashboard y lo guarda con `npx wrangler secret put CF_API_TOKEN`; nunca se pega en el chat ni en el repositorio.
 
 ## Desplegar
 

@@ -133,6 +133,20 @@ test('el admin sí puede escribir esos tipos', async () => {
 	assert.equal((await fila(env, 'cols', 'main')).cols[0].name, 'Backlog');
 });
 
+test('Dirección agrega una persona: queda guardada y puede entrar con su correo', async () => {
+	const env = await entorno();
+	const nueva = { id: 'caro', name: 'Caro', role: '', email: 'Caro@Agencia.TEST ', aprueba: false, hue: 2, cap: 6 };
+	const s = await sync(env, [{ tipo: 'user', id: 'caro', base: null, datos: nueva }], { como: 'ana@agencia.test' });
+	assert.equal(s.estado, 200);
+	assert.equal(s.json.rechazados, undefined);
+	assert.equal((await fila(env, 'user', 'caro')).email, 'caro@agencia.test'); // se guarda en minúsculas y sin espacios
+	// Sin la conexión automática configurada, avisa que falta Access (pero la persona sí queda guardada).
+	assert.match(s.json.aviso, /Cloudflare Access no se actualizó/);
+	// Ya puede entrar con su correo (si Access la deja pasar).
+	assert.deepEqual((await pedir(env, 'yo', { como: 'caro@agencia.test' })).json, { dev: false, yo: 'caro', aviso: null });
+	assert.equal((await sync(env, [], { como: 'caro@agencia.test' })).estado, 200);
+});
+
 test('un cambio rechazado no impide guardar los demás cambios de la misma solicitud', async () => {
 	const env = await entorno();
 	const s = await sync(env, [
