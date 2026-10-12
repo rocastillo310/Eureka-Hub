@@ -771,6 +771,9 @@ function vDia(){
   var h='<div class="head"><div><h2>Hola, '+esc(u.name)+'</h2><div class="muted">'+esc(cap(new Date().toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long"})))+' · '+esc(rolNombre(u.role))+'</div></div><div class="actions"><button class="btn primary" data-act="newtask">+ Nueva tarea</button></div></div>';
   if(!S.seen[u.id])h+='<div class="panel welcome"><h3 style="font-size:18px">Así se usa, en 3 pasos</h3><ol><li><b>Aquí ves tu día.</b> Lo que te toca hacer aparece abajo, ordenado por fecha.</li><li><b>Cambia el estado con un toque</b> sobre la etiqueta de color (por ejemplo, de «Redacción» a «Diseño»). La plataforma avisa sola a quien sigue.</li><li><b>Para avisar a alguien,</b> abre la tarea y escribe @ y su nombre.</li></ol><div class="actions"><button class="btn primary" data-act="seen">Entendido</button><button class="btn" data-act="nav" data-v="guia">Ver la guía</button></div></div>';
   h+=gruposEntregas();
+  // Menciones, asignaciones y avisos de aprobación sin leer: así un mensaje con @Nombre también aparece en su día.
+  var sinLeer=S.inbox.filter(function(i){return i.to===u.id&&!i.read}).sort(function(a,b){return a.t<b.t?1:-1});
+  if(sinLeer.length)h+='<div class="group"><h3>Avisos para ti <span class="muted small tnum">'+sinLeer.length+'</span></h3><div class="list">'+sinLeer.slice(0,5).map(avisoRow).join("")+'</div>'+(sinLeer.length>5?'<button class="btn small" data-act="nav" data-v="bandeja" style="align-self:flex-start">Ver los '+sinLeer.length+' en la Bandeja</button>':"")+'</div>';
   h+='<div class="tiles">'+tile(mine.length,"Mis tareas abiertas")+tile(lt.length,"Atrasadas",lt.length?"bad":"")+tile(hoy.length,"Vencen hoy")+tile(unread(),"Sin leer en Bandeja")+'</div>';
   var ags=S.agenda.filter(function(x){return x.date===iso(0)&&!x.done&&(x.owner===u.id)});
   if(ags.length)h+='<div class="panel"><h3 style="font-size:16px;margin-bottom:6px">Agenda de hoy</h3>'+ags.map(agRow).join("")+'</div>';
@@ -1956,7 +1959,8 @@ function act(a,el){
   case"comment":
     var tx=val("c-new").trim();if(!tx)return;
     t.com.push({u:S.session,t:nowIso(),x:tx});var cn=document.getElementById("c-new");if(cn)cn.value="";
-    mentionIds(tx).forEach(function(i){notify(i,uname(S.session)+" te mencionó en «"+t.title+"»",t.id)});
+    var resumen=tx.replace(/\s+/g," ").trim();if(resumen.length>140)resumen=resumen.slice(0,139)+"…";
+    mentionIds(tx).forEach(function(i){notify(i,uname(S.session)+" te mencionó en «"+t.title+"»: "+resumen,t.id)});
     logT(t,"Publicó una actualización");save();return toast("Actualización publicada");
   case"mention":var ta=document.getElementById("c-new");if(ta){ta.value+=(ta.value&&!/\s$/.test(ta.value)?" ":"")+"@"+el.getAttribute("data-n")+" ";ta.focus()}return;
   case"deltask":if(!arm("deltask"+id))return;S.tasks=S.tasks.filter(function(z){return z.id!==id});S.modal=null;save();return toast("Tarea eliminada");
