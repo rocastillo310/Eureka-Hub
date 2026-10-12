@@ -7,6 +7,7 @@
 //   PUT  /api/entregas/parte?subida=…&n=…   (cuerpo: los bytes de la parte n)
 //   POST /api/entregas/completar  {subida}
 //   POST /api/entregas/abortar    {subida}
+//   POST /api/entregas/decidir    {id, version, decision: "aprobada"|"cambios", comentario?}   (F3)
 // Reglas de R2 (R2 > Upload objects): partes de 5 MiB a 5 GiB, todas iguales salvo la última, máximo 10,000 partes.
 // Se usan partes de 50 MiB: caben con margen en los 100 MB del Worker y un reel de 4 GB son 82 partes.
 //
@@ -89,6 +90,42 @@ async function leerJson(request) {
 }
 
 const puedeBorrar = (usuario, e) => usuario.role === 'admin' || e.creadoPor === usuario.id;
+
+// ---------- aprobación (F3) ----------
+// Ajustes que decide Dirección. Valores iniciales PROVISIONALES (el prompt los deja pendientes): basta una aprobación
+// y quien subió la entrega no puede aprobarla.
+export const AJUSTES_APROBACION = { regla: 'uno', autorAprueba: false };
+async function ajustesAprobacion(env) {
+	const a = await leerEntidad(env, 'ajuste', 'aprobacion');
+	const d = (a && a.datos) || {};
+	return { regla: d.regla === 'todos' ? 'todos' : 'uno', autorAprueba: d.autorAprueba === true };
+}
+async function equipo(env) {
+	const r = await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'user' AND borrado = 0").all();
+	return (r.results || []).map((f) => JSON.parse(f.datos));
+}
+const puedeAprobar = (u, e, aj) => !!u.aprueba && (aj.autorAprueba || u.id !== e.subidoPor);
+
+// Estado de la versión actual según la última decisión de cada persona: cualquier «cambios» pendiente gana; si no,
+// con la regla «uno» basta una aprobación y con «todos» deben aprobar todas las personas que pueden aprobarla.
+export function estadoDe(e, usuarios, aj) {
+	const ultimas = new Map();
+	for (const a of e.aprobaciones || []) if (a.version === e.version) ultimas.set(a.por, a);
+	const votos = [...ultimas.values()];
+	if (votos.some((a) => a.decision === 'cambios')) return 'cambios';
+	const si = new Set(votos.filter((a) => a.decision === 'aprobada').map((a) => a.por));
+	if (aj.regla === 'todos') {
+		const deben = usuarios.filter((u) => puedeAprobar(u, e, aj)).map((u) => u.id);
+		return deben.length && deben.every((id) => si.has(id)) ? 'aprobada' : 'pendiente';
+	}
+	return si.size ? 'aprobada' : 'pendiente';
+}
+
+// Aviso en la Bandeja de una persona (la misma forma que crea la pantalla, con `entrega` para abrirla).
+async function avisar(env, para, texto, e) {
+	const id = nuevoId('i');
+	await guardarDelServidor(env, 'inbox', id, () => ({ id, to: para, t: ahora(), x: texto, task: '', entrega: e.id, read: false }), 'servidor');
+}
 
 async function registrarActividad(env, por, verbo, e, detalle) {
 	const id = nuevoId('act');
@@ -243,6 +280,17 @@ async function completar(request, env, usuario) {
 	}, usuario.id);
 	await limpiarSubida(env, s.id);
 	await registrarActividad(env, s.por, esNueva ? 'entregó' : 'subió una versión nueva de', e, esNueva ? undefined : `Versión ${s.version}`);
+	// Aviso a quienes pueden aprobar esta versión (nunca a quien la subió).
+	if (e.version === s.version) {
+		const aj = await ajustesAprobacion(env), usuarios = await equipo(env);
+		const cuenta = await leerEntidad(env, 'account', e.cuentaId);
+		const donde = cuenta && cuenta.datos ? ` en ${cuenta.datos.name}` : '';
+		const quien = (usuarios.find((u) => u.id === s.por) || {}).name || s.por;
+		for (const u of usuarios) {
+			if (u.id === s.por || !puedeAprobar(u, e, aj)) continue;
+			await avisar(env, u.id, esNueva ? `${quien} entregó «${e.nombre}»${donde}: falta tu aprobación` : `${quien} subió la versión ${e.version} de «${e.nombre}»${donde}: falta tu aprobación`, e);
+		}
+	}
 	return resp({ entrega: e });
 }
 
@@ -253,6 +301,41 @@ async function abortar(request, env, usuario) {
 	try { await env.ENTREGAS.resumeMultipartUpload(s.r2_key, s.upload_id).abort(); } catch { /* R2 ya la había cerrado */ }
 	await limpiarSubida(env, s.id);
 	return resp({ ok: true });
+}
+
+async function decidir(request, env, usuario) {
+	const b = await leerJson(request);
+	const decision = b.decision;
+	if (decision !== 'aprobada' && decision !== 'cambios') return error(400, 'Decisión inválida');
+	const comentario = nombreLimpio(b.comentario, 2000);
+	if (decision === 'cambios' && !comentario) return error(400, 'Escribe qué hay que cambiar');
+	const e0 = await entregaPara(env, b.id);
+	if (!e0 || !e0.datos || e0.datos.borrada) return error(404, 'Esa entrega no existe');
+	const aj = await ajustesAprobacion(env), usuarios = await equipo(env);
+	if (!usuario.aprueba) return error(403, 'No tienes permiso para aprobar entregas. Dirección lo activa en Equipo.');
+	let motivo = null, antes = null;
+	const e = await guardarDelServidor(env, 'entrega', b.id, (actual) => {
+		motivo = null;
+		if (!actual || actual.borrada) { motivo = [404, 'Esa entrega no existe']; return undefined; }
+		if (actual.version !== b.version) { motivo = [409, `Ya hay una versión más nueva (la ${actual.version}). Revísala antes de decidir.`]; return undefined; }
+		if (!puedeAprobar(usuario, actual, aj)) { motivo = [403, 'No puedes aprobar tu propia entrega (se cambia en Ajustes)']; return undefined; }
+		antes = actual.estado || 'pendiente';
+		const voto = { por: usuario.id, en: ahora(), decision, version: actual.version };
+		if (comentario) voto.comentario = comentario;
+		const quitaMio = (lista) => (lista || []).filter((a) => !(a.por === usuario.id && a.version === actual.version));
+		const x = { ...actual, aprobaciones: [...quitaMio(actual.aprobaciones), voto] };
+		x.versiones = (actual.versiones || []).map((v) => (v.version === actual.version ? { ...v, aprobaciones: [...quitaMio(v.aprobaciones), voto] } : v));
+		x.estado = estadoDe(x, usuarios, aj);
+		return x;
+	}, usuario.id);
+	if (motivo) return error(motivo[0], motivo[1]);
+	await registrarActividad(env, usuario.id, decision === 'aprobada' ? 'aprobó' : 'pidió cambios en', e,
+		decision === 'cambios' ? comentario : `Versión ${e.version}`);
+	// «Cambios» regresa la entrega a quien la subió; cuando queda aprobada, también se le avisa.
+	const nombre = usuario.name || usuario.id;
+	if (decision === 'cambios' && e.subidoPor !== usuario.id) await avisar(env, e.subidoPor, `${nombre} pidió cambios en «${e.nombre}»: ${comentario}`, e);
+	if (e.estado === 'aprobada' && antes !== 'aprobada' && e.subidoPor !== usuario.id) await avisar(env, e.subidoPor, `«${e.nombre}» quedó aprobada`, e);
+	return resp({ entrega: e });
 }
 
 // ---------- descarga y vista previa (con Range para el video) ----------
@@ -362,5 +445,6 @@ export async function manejarEntregas(request, env, ruta, usuario) {
 	if (ruta === 'borrar' && m === 'POST') return borrar(request, env, usuario, false);
 	if (ruta === 'restaurar' && m === 'POST') return borrar(request, env, usuario, true);
 	if (ruta === 'purgar' && m === 'POST') return purgar(request, env, usuario);
+	if (ruta === 'decidir' && m === 'POST') return decidir(request, env, usuario);
 	return error(404, 'Ruta no encontrada');
 }

@@ -7,11 +7,28 @@ import { correosDelEquipo, sincronizarPoliticaAccess } from './access-politica.j
 import { aEntidad, escribir } from './entidades.js';
 import { manejarEntregas } from './entregas.js';
 
-export const TIPOS = new Set(['user', 'account', 'list', 'task', 'cal', 'ag', 'auto', 'inbox', 'note', 'cols', 'stat', 'seen', 'pref', 'board', 'entrega', 'actividad']);
+export const TIPOS = new Set(['user', 'account', 'list', 'task', 'cal', 'ag', 'auto', 'inbox', 'note', 'cols', 'stat', 'seen', 'pref', 'board', 'entrega', 'actividad', 'ajuste']);
 // Solo el rol admin escribe estos tipos (sección 5 del prompt).
-export const SOLO_ADMIN = new Set(['user', 'auto', 'stat', 'cols']);
-// Estos los escribe solo el servidor (rutas /api/entregas/*), que estampa autor y hora; por sync se rechazan.
-export const SOLO_SERVIDOR = new Set(['entrega', 'actividad']);
+export const SOLO_ADMIN = new Set(['user', 'auto', 'stat', 'cols', 'ajuste']);
+// `entrega` la escribe solo el servidor (rutas /api/entregas/*), que estampa autor y hora; por sync se rechaza.
+// `actividad` solo se añade: la pantalla puede crear la de tareas y juntas, pero el servidor pone `por` y `t`.
+export const SOLO_SERVIDOR = new Set(['entrega']);
+const OBJETOS_ACTIVIDAD = new Set(['task', 'junta']);
+const texto = (x, max) => String(x ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
+
+// Limpia una actividad que manda la pantalla. Devuelve los datos a guardar o el motivo del rechazo.
+export function actividadDeCliente(c, usuario) {
+	const d = c.datos;
+	if (!d || c.base) return { motivo: 'La actividad no se edita ni se borra' };
+	const o = d.objeto;
+	if (!o || typeof o !== 'object' || !OBJETOS_ACTIVIDAD.has(o.tipo) || typeof o.id !== 'string') return { motivo: 'Actividad inválida' };
+	const verbo = texto(d.verbo, 60);
+	if (!verbo) return { motivo: 'Actividad inválida' };
+	const datos = { id: c.id, t: new Date().toISOString(), por: usuario.id, verbo, objeto: { tipo: o.tipo, id: texto(o.id, 80), titulo: texto(o.titulo, 200) } };
+	if (typeof d.cuentaId === 'string' && d.cuentaId) datos.cuentaId = texto(d.cuentaId, 80);
+	if (d.detalle) datos.detalle = texto(d.detalle, 500);
+	return { datos };
+}
 
 const MAX_CAMBIOS = 300;
 const MAX_ENTIDAD = 1_500_000; // caracteres de JSON por elemento; el cliente ya rechaza `board` de más de ~1.4 M
@@ -169,6 +186,12 @@ export async function manejarApi(request, env) {
 				const motivo = permiso(q.usuario, c);
 				if (motivo) { rechazados.push({ tipo: c.tipo, id: c.id, motivo }); continue; }
 				if (c.tipo === 'user' && c.datos && typeof c.datos.email === 'string') c.datos.email = c.datos.email.trim().toLowerCase();
+				if (c.tipo === 'actividad') {
+					const ya = await env.DB.prepare("SELECT 1 AS x FROM entidades WHERE tipo = 'actividad' AND id = ?1").bind(c.id).first();
+					const a = ya ? { motivo: 'La actividad no se edita ni se borra' } : actividadDeCliente(c, q.usuario);
+					if (a.motivo) { rechazados.push({ tipo: c.tipo, id: c.id, motivo: a.motivo }); continue; }
+					c.datos = a.datos;
+				}
 				await aplicarCambio(env, c, q.usuario.id);
 				if (c.tipo === 'user') cambioEquipo = true;
 			}

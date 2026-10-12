@@ -94,6 +94,15 @@ Se suben desde la vista **Entregas** (o arrastrando archivos a cualquier pantall
 - **Almacenamiento:** Ajustes muestra lo usado contra los 10 GB gratis de R2 (son de toda la cuenta de Cloudflare) y avisa desde el 80 %. Lo que pase se cobra por GB al mes; descargar no cuesta.
 - Las subidas que se quedan a medias las cancela R2 solo a los 7 días.
 
+## Área general y aprobaciones (F3)
+
+- **Área general** es la pantalla de inicio: la actividad del equipo (entregas, aprobaciones, tareas creadas, movidas o asignadas) y «Quién tiene qué» (tareas abiertas por persona contra su capacidad).
+- **Actividad:** solo se añade. El servidor la crea para entregas y aprobaciones; la pantalla la crea para tareas, pero el servidor pone quién y cuándo, y no deja editarla ni borrarla.
+- **Aprobación:** aprueba quien tiene «Aprueba entregas» en Equipo (`POST /api/entregas/decidir`). «Pedir cambios» exige comentario y regresa la entrega a quien la subió. Una versión nueva vuelve a «pendiente»; las decisiones de cada versión se conservan.
+- **Ajustes de aprobación** (solo Dirección): una o todas las aprobaciones, y si quien sube puede aprobar lo suyo. Valores iniciales **provisionales**: basta una y no puede aprobar lo suyo.
+- **Avisos en la Bandeja:** a quienes aprueban cuando llega una entrega o una versión; a quien la subió cuando le piden cambios o queda aprobada; a cada quien por sus pendientes de junta.
+- **Pendientes de junta:** se pega el mensaje de la junta (`@Nombre:` y pendientes con viñetas). Cada pendiente se vuelve tarea asignada en la cuenta que se menciona, o tarea personal en la Agenda si no hay cuenta.
+
 ## Desplegar
 
 Si hay migraciones nuevas en `migrations/`, primero se aplican a la base de producción:
@@ -125,7 +134,7 @@ docs/prototipo/ prototipo original de referencia (fuera de git)
 | F0 | Estructura, D1 y R2 creados, "hola" desplegado detrás de Access | hecho |
 | F1 | `/api/yo`, `bootstrap`, `sync`, `merge3`, migraciones, equipo | hecho |
 | F2 | Entregas con R2 | hecho (falta la prueba con un video real en producción) |
-| F3 | Área general, aprobaciones, inbox | pendiente |
+| F3 | Área general, aprobaciones, inbox (y pendientes de junta) | hecho |
 | F4 | Contactos y base de datos | pendiente |
 | F5 | Respaldo y restauración | pendiente |
 | F6 | Endurecimiento y README de operación | pendiente |
