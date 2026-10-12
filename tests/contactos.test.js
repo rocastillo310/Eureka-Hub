@@ -96,3 +96,26 @@ test('borrar: solo Dirección o quien lo creó', async () => {
 test('validarContacto acepta un contacto completo', () => {
 	assert.equal(validarContacto({ id: 'k', cuentaId: 'c1', nombre: 'Laura', cargo: '', correo: '', telefono: '', notas: '' }), null);
 });
+
+// ---------- eliminar cuentas ----------
+const cuenta = async (env, id) => {
+	const f = await env.DB.prepare("SELECT datos, borrado FROM entidades WHERE tipo = 'account' AND id = ?1").bind(id).first();
+	return f && !f.borrado ? JSON.parse(f.datos) : null;
+};
+const borrarCuenta = (env, como, id, base) => sync(env, como, [{ tipo: 'account', id, base, datos: null }]);
+
+test('eliminar una cuenta: solo Dirección y solo si no tiene tareas, calendarios, entregas ni contactos', async () => {
+	const env = await entorno();
+	const c2 = await cuenta(env, 'c2');
+	assert.match((await borrarCuenta(env, beto, 'c2', c2)).rechazados[0].motivo, /Solo Dirección/);
+	assert.ok(await cuenta(env, 'c2'));
+	// Con un contacto y una tarea, ni Dirección la puede eliminar.
+	await sync(env, beto, [nuevo({ id: 'k1', cuentaId: 'c1', nombre: 'Laura' })]);
+	await poner(env, 'task', 't1', { id: 't1', acc: 'c1', title: 'Reel' });
+	const c1 = await cuenta(env, 'c1');
+	assert.match((await borrarCuenta(env, ana, 'c1', c1)).rechazados[0].motivo, /1 tareas, 1 contactos|1 contactos, 1 tareas/);
+	assert.ok(await cuenta(env, 'c1'));
+	// Vacía, Dirección sí la elimina.
+	assert.equal((await borrarCuenta(env, ana, 'c2', c2)).rechazados, undefined);
+	assert.equal(await cuenta(env, 'c2'), null);
+});
