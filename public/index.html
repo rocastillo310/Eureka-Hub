@@ -368,6 +368,10 @@ input.plain{border:1px solid var(--line);border-radius:8px;padding:8px 10px;back
 .mref figcaption .btn{margin-left:auto}
 .mlink{display:flex;flex-direction:column;gap:2px;padding:12px;font-weight:600;color:var(--accent);overflow-wrap:anywhere;text-decoration:none}
 .mlink:hover{text-decoration:underline}
+/* subcarpetas */
+.tsub{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:8px 8px 2px 30px}
+.tsub .ic{width:13px;height:13px}
+h3.subc{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin-top:4px}
 /* confirmaciones y tema */
 .btn .seguro{white-space:normal;text-align:left;font-weight:600;line-height:1.35;display:block}
 .tema-rapido{display:flex;gap:4px}
@@ -629,7 +633,7 @@ function createTask(o){
   S.tasks.push(t);
   logT(t,"Creada en «"+statName(L.type,st)+"»"+(o.via?" ("+o.via+")":""));
   if(!t.assignees.length)runStatusAutos(t,st);
-  if(o.via!=="calendario aprobado"&&o.via!=="pendientes de junta")registrarAct("creó",t,L.name+(t.assignees.length?" · para "+names(t.assignees):""));
+  if(o.via!=="calendario aprobado"&&o.via!=="pendientes de junta")registrarAct("creó",t,listaNombre(L)+(t.assignees.length?" · para "+names(t.assignees):""));
   runDue();
   return t;
 }
@@ -651,7 +655,7 @@ function scope(){
   if(id&&id.indexOf("all:")===0){var ty=id.slice(4);return{all:true,type:ty,list:null,title:"Todas las cuentas · "+TYPES[ty],tasks:S.tasks.filter(function(t){return t.type===ty})}}
   var L=listById(id)||S.lists[0];
   if(!L)return{all:true,type:"redes",list:null,title:"Sin listas",tasks:[]};
-  return{all:false,type:L.type,list:L,title:L.name,space:acc(L.acc),tasks:S.tasks.filter(function(t){return t.list===L.id})};
+  return{all:false,type:L.type,list:L,title:listaNombre(L),space:acc(L.acc),tasks:S.tasks.filter(function(t){return t.list===L.id})};
 }
 function weekBucket(t){
   var d=dayDiff(t.date);
@@ -741,7 +745,8 @@ function tree(){
   if(cur){
     var a0=acc(cur);
     h+='<button class="tlist'+(S.view==="space"&&S.spaceId===cur?" on":"")+'" data-act="space" data-id="'+cur+'">'+accDot(a0)+'<span>Resumen de la cuenta</span></button>';
-    h+=S.lists.filter(function(l){return l.acc===cur}).map(function(l){return '<button class="tlist'+(S.view==="list"&&S.listId===l.id?" on":"")+'" data-act="list" data-id="'+l.id+'">'+ic(l.type==="redes"?"list":"grid")+'<span>'+esc(l.name)+'</span><small class="tnum">'+openCount(l)+'</small></button>'}).join("");
+    var tl=function(l){return '<button class="tlist'+(S.view==="list"&&S.listId===l.id?" on":"")+'" data-act="list" data-id="'+l.id+'">'+ic(l.type==="redes"?"list":"grid")+'<span>'+esc(l.name)+'</span><small class="tnum">'+openCount(l)+'</small></button>'};
+    h+=subcarpetas(cur).map(function(g){return(g.nombre?'<div class="tsub">'+ic("folder")+esc(g.nombre)+'</div>':"")+g.listas.map(tl).join("")}).join("");
   }
   ["redes","diseno"].forEach(function(ty){h+='<button class="tlist glob'+(S.view==="list"&&S.listId==="all:"+ty?" on":"")+'" data-act="list" data-id="all:'+ty+'">'+ic("folder")+'<span>Todo · '+TYPES[ty]+'</span></button>'});
   return h+'</div>';
@@ -775,7 +780,7 @@ function view(){
 /* ---------- piezas pequeñas ---------- */
 function taskLine(t){
   var a=acc(t.acc),L=listById(t.list);
-  return '<button class="item" data-act="open" data-id="'+t.id+'"><span class="t">'+esc(t.title)+'</span><span class="row">'+stPill(t)+'</span><span class="meta">'+accDot(a)+esc(shortName(a.name))+' · '+esc(L?L.name:"")+' · '+fdate(t.date)+' · '+esc(t.fmt)+riskPill(t)+prioPill(t)+(t.assignees.length?' '+avs(t.assignees):"")+'</span></button>';
+  return '<button class="item" data-act="open" data-id="'+t.id+'"><span class="t">'+esc(t.title)+'</span><span class="row">'+stPill(t)+'</span><span class="meta">'+accDot(a)+esc(shortName(a.name))+' · '+esc(listaNombre(L))+' · '+fdate(t.date)+' · '+esc(t.fmt)+riskPill(t)+prioPill(t)+(t.assignees.length?' '+avs(t.assignees):"")+'</span></button>';
 }
 function tile(n,l,cls){return '<div class="tile"><b class="tnum '+(cls||"")+'">'+n+'</b><span class="muted small">'+l+'</span></div>'}
 function calItem(c){var a=acc(c.acc);return '<button class="item" data-act="opencal" data-id="'+c.id+'"><span class="t">Calendario '+esc(c.month)+' · '+esc(a.name)+'</span><span><span class="pill st-'+({borrador:"redaccion",interna:"diseno",cliente:"cliente",aprobado:"publicada"})[c.state]+'">'+CALST[c.state]+'</span></span></button>'}
@@ -899,9 +904,10 @@ function vSpace(){
   var h='<div class="head"><div><div class="muted small crumb"><button class="btn small ghost" data-act="nav" data-v="spaces">Cuentas</button></div><h2>'+accDot(a)+' '+esc(a.name)+'</h2></div><div class="actions">'+(safeUrl(a.drive)?'<a class="btn" href="'+esc(safeUrl(a.drive))+'" target="_blank" rel="noopener">'+ic("drive")+' Carpeta en Drive</a>':"")+(isAdmin()?'<button class="btn dots3" data-act="rename" data-t="acc" data-id="'+a.id+'" aria-label="Editar cuenta" title="Editar">⋯</button><button class="btn" data-act="newlist" data-id="'+a.id+'">+ Nueva lista</button>':"")+'<button class="btn primary" data-act="newtask" data-acc="'+a.id+'">+ Nueva tarea</button></div></div>';
   h+='<div class="tiles">'+tile(op.length,"Abiertas")+tile(ts.filter(function(t){return risk(t)==="atrasada"}).length,"Atrasadas")+tile(ts.filter(function(t){return risk(t)==="riesgo"}).length,"En riesgo")+tile(ts.length-op.length,"Terminadas")+'</div>';
   h+='<div class="panel"><h3 style="font-size:16px;margin-bottom:8px">Equipo de la cuenta</h3><div class="two" style="margin-top:4px">'+Object.keys(ROLES).map(function(k){var cur=a.team[k];return '<div class="field"><label for="tm-'+k+'">'+esc(ROLES[k])+'</label><select id="tm-'+k+'" data-f="team" data-id="'+a.id+'" data-role="'+k+'"'+(isAdmin()?"":" disabled")+'><option value=""'+(cur?"":" selected")+'>— Sin asignar —</option>'+S.users.filter(function(u){return u.role===k||u.id===cur}).map(function(u){return '<option value="'+u.id+'"'+(u.id===cur?" selected":"")+'>'+esc(u.name)+'</option>'}).join("")+'</select></div>'}).join("")+'</div><div class="muted small" style="margin-top:6px">Las automatizaciones asignan cada etapa a la persona de este equipo según el rol.</div></div>';
-  h+='<div class="group"><h3>Listas</h3><div class="grid">'+S.lists.filter(function(l){return l.acc===a.id}).map(function(l){
+  var tarjeta=function(l){
     var lt=S.tasks.filter(function(t){return t.list===l.id}),dn=lt.filter(isFinal).length,pc=lt.length?Math.round(dn/lt.length*100):0;
-    return '<button class="panel item" style="grid-template-columns:1fr" data-act="list" data-id="'+l.id+'"><span class="row" style="justify-content:space-between"><b>'+esc(l.name)+'</b><span class="muted small">'+TYPES[l.type]+'</span></span><span class="bar"><i style="width:'+pc+'%"></i></span><span class="muted small tnum">'+dn+' de '+lt.length+' terminadas · '+pc+'%</span></button>'}).join("")+'</div></div>';
+    return '<button class="panel item" style="grid-template-columns:1fr" data-act="list" data-id="'+l.id+'"><span class="row" style="justify-content:space-between"><b>'+esc(l.name)+'</b><span class="muted small">'+TYPES[l.type]+'</span></span><span class="bar"><i style="width:'+pc+'%"></i></span><span class="muted small tnum">'+dn+' de '+lt.length+' terminadas · '+pc+'%</span></button>'};
+  h+='<div class="group"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Listas</h3><button class="btn small" data-act="subcnueva" data-id="'+a.id+'">+ Subcarpeta</button></div>'+subcarpetas(a.id).map(function(g){return(g.nombre?'<h3 class="subc">'+ic("folder")+esc(g.nombre)+'</h3>':"")+'<div class="grid">'+g.listas.map(tarjeta).join("")+'</div>'}).join("")+'</div>';
   h+=ctCuentaPanel(a);
   h+=spacePubCal(a)+brandBoard(a);
   var cs=S.cals.filter(function(c){return c.acc===a.id});
@@ -1038,7 +1044,7 @@ function vForm(sc){
   var Ls=sc.list?[sc.list]:S.lists.filter(function(l){return l.type===sc.type});
   var recent=sc.tasks.filter(function(t){return t.via==="form"||(t.hist[0]&&/formulario/i.test(t.hist[0].x))}).slice(-5).reverse();
   return '<div class="two" style="align-items:start"><form id="reqForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div><h3 style="font-size:18px">Solicitud de '+(sc.type==="redes"?"contenido":"diseño")+'</h3><p class="muted small" style="margin:4px 0 0">Cualquier persona del equipo, o un cliente a través de Dirección, puede pedir trabajo aquí. La tarea entra en «'+esc(S.stat[sc.type][0].n)+'» y la automatización la asigna.</p></div>'+
-  '<div class="field"><label for="rq-list">Lista</label><select id="rq-list">'+Ls.map(function(l){return '<option value="'+l.id+'">'+esc(shortName(acc(l.acc).name)+' · '+l.name)+'</option>'}).join("")+'</select></div>'+
+  '<div class="field"><label for="rq-list">Lista</label><select id="rq-list">'+Ls.map(function(l){return '<option value="'+l.id+'">'+esc(shortName(acc(l.acc).name)+' · '+listaNombre(l))+'</option>'}).join("")+'</select></div>'+
   '<div class="field"><label for="rq-title">¿Qué se necesita?</label><input id="rq-title" required></div><div class="two"><div class="field"><label for="rq-fmt">Formato</label><select id="rq-fmt">'+FORMATS[sc.type].map(function(f){return '<option>'+f+'</option>'}).join("")+'</select></div><div class="field"><label for="rq-date">Fecha límite</label><input id="rq-date" type="date" required value="'+iso(7)+'"></div></div>'+
   '<div class="field"><label for="rq-prio">Prioridad</label><select id="rq-prio"><option value="">Sin prioridad</option>'+PRIO.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>'}).join("")+'</select></div><div class="field"><label for="rq-desc">Detalles</label><textarea id="rq-desc" placeholder="Contexto, referencias, tono…"></textarea></div><button class="btn primary" type="submit" style="align-self:flex-start">Enviar solicitud</button></form>'+
   '<div class="panel"><h3 style="font-size:16px;margin-bottom:8px">Solicitudes recientes</h3>'+(recent.length?'<div class="list">'+recent.map(taskLine).join("")+'</div>':'<div class="muted small" style="font-style:italic">Aún no hay solicitudes por este formulario.</div>')+'</div></div>';
@@ -1103,7 +1109,7 @@ function knModal(m){
   '<div class="field"><label for="kn-date">Fecha (opcional)</label><input id="kn-date" type="date" value="'+(x?x.date:"")+'"></div>'+
   '<div class="field"><label for="kn-notes">Notas</label><textarea id="kn-notes" style="min-height:70px">'+esc(x?x.notes:"")+'</textarea></div>'+
   '<label class="chk" for="kn-flag"><input type="checkbox" id="kn-flag"'+(x&&x.flag?" checked":"")+'> Marcar con alerta de atención</label>'+
-  '<div class="actions"><button class="btn primary" type="submit">Guardar</button>'+(x&&can?'<button class="btn danger" type="button" data-act="delkn" data-id="'+x.id+'">'+(S.armed==="delkn"+x.id?seguro("eliminar esta nota"):"Eliminar")+'</button>':"")+'</div></form>'+(x?'<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3 style="font-size:16px">Convertir en tarea</h3><p class="muted small" style="margin:0">Crea una tarea en una lista de cuenta con el título, la fecha, el responsable y las notas de esta nota, y la quita de la pizarra.</p><div class="field"><label for="kn-list">Lista destino</label><select id="kn-list">'+S.lists.map(function(l){return '<option value="'+l.id+'"'+(x.acc===l.acc?" selected":"")+'>'+esc(shortName(acc(l.acc).name)+" · "+l.name)+'</option>'}).join("")+'</select></div><button class="btn" data-act="kn2task" data-id="'+x.id+'" style="align-self:flex-start">Convertir en tarea</button></div>':"");
+  '<div class="actions"><button class="btn primary" type="submit">Guardar</button>'+(x&&can?'<button class="btn danger" type="button" data-act="delkn" data-id="'+x.id+'">'+(S.armed==="delkn"+x.id?seguro("eliminar esta nota"):"Eliminar")+'</button>':"")+'</div></form>'+(x?'<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3 style="font-size:16px">Convertir en tarea</h3><p class="muted small" style="margin:0">Crea una tarea en una lista de cuenta con el título, la fecha, el responsable y las notas de esta nota, y la quita de la pizarra.</p><div class="field"><label for="kn-list">Lista destino</label><select id="kn-list">'+S.lists.map(function(l){return '<option value="'+l.id+'"'+(x.acc===l.acc?" selected":"")+'>'+esc(shortName(acc(l.acc).name)+" · "+listaNombre(l))+'</option>'}).join("")+'</select></div><button class="btn" data-act="kn2task" data-id="'+x.id+'" style="align-self:flex-start">Convertir en tarea</button></div>':"");
 }
 function kcModal(){
   return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Ajustar columnas</h2><button class="btn" data-act="close">Cerrar</button></div><form id="kcForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><p class="muted small" style="margin:0">El límite es el máximo de notas recomendado en la columna. Déjalo en 0 si no quieres límite.</p>'+
@@ -1255,6 +1261,7 @@ function vGuia(){
   '<h3>Alertas</h3><ul><li><b>En riesgo:</b> faltan 2 días o menos y la tarea aún no está en una etapa final o programada.</li><li><b>Atrasada:</b> pasó la fecha y no está terminada.</li></ul>'+
   '<h3>Bandeja, Mi día y Panel</h3><p>Bandeja junta los avisos. Mi día muestra tus tareas por urgencia. Panel resume todas las cuentas.</p>'+
   '<h3>Pizarra Kanban y Agenda</h3><p>La pizarra son notas libres con columnas y límites; una nota se puede convertir en tarea. La Agenda junta actividades, tareas personales y las fechas de entrega de tus tareas. En su pestaña «Publicaciones» ves solo lo que se publica cada día en redes, de todas las cuentas o de una.</p>'+
+  '<h3>Subcarpetas</h3><p>Dentro de una cuenta puedes agrupar listas en subcarpetas, por ejemplo una por marca o línea de productos (Brizna y Trufas dentro de Brizna). Cualquiera las crea con «+ Subcarpeta» en el resumen de la cuenta; cada una nace con su lista de redes del mes y su lista de diseño. Mover o renombrar listas lo hace Dirección.</p>'+
   '<h3>Contactos</h3><p>La base de datos de clientes: nombre, cargo, correo, teléfono y notas de cada persona con la que tratamos, por cuenta. Busca en todas las cuentas a la vez, abre su correo o su WhatsApp con un toque, e importa o exporta la lista en CSV (Excel o Google Sheets). Cualquiera agrega y edita; borrar lo hace Dirección o quien lo agregó.</p>'+
   '<h3>Tema claro u oscuro</h3><p>En Ajustes → Apariencia eliges claro, oscuro o «como el sistema» (sigue el modo de tu computadora o teléfono). Se guarda para tu cuenta.</p>'+
   '<h3>Área general</h3><p>Es la pantalla de inicio. Muestra lo que pasa en el equipo: quién entregó, aprobó o pidió cambios, y qué tareas se crearon, movieron o asignaron. A la derecha, «Quién tiene qué» cuenta las tareas abiertas de cada persona. Con «Pendientes de junta» pegas el mensaje de la junta (como el de WhatsApp: @Nombre: y sus pendientes con viñetas) y se vuelven tareas asignadas con aviso a cada quien.</p>'+
@@ -1384,7 +1391,7 @@ function enFiltrar(arr){
     if(f.estado&&e.estado!==f.estado)return false;
     if(f.persona&&e.subidoPor!==f.persona&&e.creadoPor!==f.persona)return false;
     if(f.tipo&&tipoEn(e.mime)!==f.tipo)return false;
-    if(q){var a=acc(e.cuentaId),L=listaDe(e);if(norm([e.nombre,e.archivo,e.notas,a&&a.name,L&&L.name].join(" ")).indexOf(q)<0)return false}
+    if(q){var a=acc(e.cuentaId),L=listaDe(e);if(norm([e.nombre,e.archivo,e.notas,a&&a.name,listaNombre(L)].join(" ")).indexOf(q)<0)return false}
     return true;
   });
 }
@@ -1400,7 +1407,7 @@ function enFiltrosHtml(){
 function enRow(e){
   var a=acc(e.cuentaId),L=listaDe(e),k=tipoEn(e.mime);
   var mini=k==="imagen"&&previa(e.mime)&&e.tamano<=8e6?'<img class="thumb" src="'+esc(urlArchivo(e))+'" alt="" loading="lazy">':'<span class="thumb ti" aria-hidden="true">'+esc(extDe(e.archivo).toUpperCase()||"?")+'</span>';
-  return '<button class="item enrow" data-act="enopen" data-id="'+e.id+'">'+mini+'<span class="t">'+esc(e.nombre)+(e.version>1?' <span class="muted small">v'+e.version+'</span>':"")+'</span><span>'+enPill(e)+'</span><span class="meta">'+(a?accDot(a)+esc(shortName(a.name)):"")+(L?' · '+esc(L.name):"")+' · '+tipoNombre(k)+' · '+fbytes(e.tamano)+' · '+esc(uname(e.subidoPor))+' · '+ftime(e.subidoEn)+'</span></button>';
+  return '<button class="item enrow" data-act="enopen" data-id="'+e.id+'">'+mini+'<span class="t">'+esc(e.nombre)+(e.version>1?' <span class="muted small">v'+e.version+'</span>':"")+'</span><span>'+enPill(e)+'</span><span class="meta">'+(a?accDot(a)+esc(shortName(a.name)):"")+(L?' · '+esc(listaNombre(L)):"")+' · '+tipoNombre(k)+' · '+fbytes(e.tamano)+' · '+esc(uname(e.subidoPor))+' · '+ftime(e.subidoEn)+'</span></button>';
 }
 function carpeta(id,nombre,n,icono){return '<button class="card enc" data-act="ennav" data-l="'+esc(id)+'"><span class="t row" style="gap:8px">'+ic(icono)+esc(nombre)+'</span><span class="muted small tnum">'+(n?n+(n===1?" entrega":" entregas"):"Vacía")+'</span></button>'}
 function vEntregas(){
@@ -1412,7 +1419,7 @@ function vEntregas(){
   var crumb=[];
   if(a||f.papelera)crumb.push('<button class="btn small ghost" data-act="ennav" data-c="">Entregas</button>');
   if(a&&f.lista&&!f.papelera)crumb.push('<button class="btn small ghost" data-act="ennav" data-c="'+a.id+'">'+esc(shortName(a.name))+'</button>');
-  var titulo=f.papelera?"Papelera":L?L.name:a&&f.lista==="_"?"Sin lista":a?a.name:"Entregas";
+  var titulo=f.papelera?"Papelera":L?listaNombre(L):a&&f.lista==="_"?"Sin lista":a?a.name:"Entregas";
   h+=(crumb.length?'<div class="muted small crumb">'+crumb.join(" / ")+'</div>':"")+'<h2>'+(a&&!f.lista&&!f.papelera?accDot(a)+" ":"")+esc(titulo)+'</h2>'+(!a&&!f.papelera?'<div class="muted">Por cuenta y luego por lista. Cada archivo conserva todas sus versiones.</div>':"")+'</div><div class="actions">'+(pap.length&&!f.papelera?'<button class="btn" data-act="enpap">Papelera ('+pap.length+')</button>':"")+(f.papelera?"":'<button class="btn primary" data-act="ensubir">'+ic("upload")+' Subir</button>')+'</div></div>';
   var uso=usoBytes();
   if(uso.total>=GRATIS_BYTES*0.8)h+='<div class="banner" role="alert">El almacenamiento de entregas va en '+fbytes(uso.total)+' de los 10 GB gratis ('+Math.round(uso.total/GRATIS_BYTES*100)+' %). Lo que pase de 10 GB se cobra. Revisa la papelera o avisa a Dirección.</div>';
@@ -1436,7 +1443,8 @@ function vEntregas(){
   }
   if(!f.lista){
     var sin=vivas.filter(function(e){return e.cuentaId===a.id&&!e.listaId}).length;
-    h+=drop+'<div class="grid">'+S.lists.filter(function(l){return l.acc===a.id}).map(function(l){return carpeta(l.id,l.name,vivas.filter(function(e){return e.listaId===l.id}).length,l.type==="redes"?"list":"grid")}).join("")+(sin?carpeta("_","Sin lista",sin,"folder"):"")+'</div>';
+    var carp=function(l){return carpeta(l.id,l.name,vivas.filter(function(e){return e.listaId===l.id}).length,l.type==="redes"?"list":"grid")};
+    h+=drop+subcarpetas(a.id).map(function(g){return(g.nombre?'<h3 class="subc">'+ic("folder")+esc(g.nombre)+'</h3>':"")+'<div class="grid">'+g.listas.map(carp).join("")+'</div>'}).join("")+(sin?'<div class="grid">'+carpeta("_","Sin lista",sin,"folder")+'</div>':"");
     var rec2=vivas.filter(function(e){return e.cuentaId===a.id}).sort(enOrden).slice(0,8);
     if(rec2.length)h+='<div class="group"><h3>Lo más reciente de la cuenta</h3><div class="list">'+rec2.map(enRow).join("")+'</div></div>';
     return h;
@@ -1587,7 +1595,7 @@ function subirModal(m){
     var c=m.cuenta,Ls=S.lists.filter(function(l){return l.acc===c});
     var Ts=c?S.tasks.filter(function(t){return t.acc===c&&(!m.lista||t.list===m.lista)&&(!isFinal(t)||t.id===m.tarea)}).sort(byDate):[];
     h+='<div class="field"><label for="sb-acc">Cuenta</label><select id="sb-acc" data-f="sbacc" required><option value="">Elige la cuenta…</option>'+S.accounts.slice().sort(function(x,y){return String(x.name).localeCompare(String(y.name),"es")}).map(function(a){return '<option value="'+a.id+'"'+(a.id===c?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div>';
-    h+='<div class="two"><div class="field"><label for="sb-list">Lista (carpeta)</label><select id="sb-list" data-f="sblist"'+(c?"":" disabled")+'><option value="">Sin lista</option>'+Ls.map(function(l){return '<option value="'+l.id+'"'+(l.id===m.lista?" selected":"")+'>'+esc(l.name)+'</option>'}).join("")+'</select></div>'+
+    h+='<div class="two"><div class="field"><label for="sb-list">Lista (carpeta)</label><select id="sb-list" data-f="sblist"'+(c?"":" disabled")+'><option value="">Sin lista</option>'+Ls.map(function(l){return '<option value="'+l.id+'"'+(l.id===m.lista?" selected":"")+'>'+esc(listaNombre(l))+'</option>'}).join("")+'</select></div>'+
       '<div class="field"><label for="sb-task">Tarea relacionada (opcional)</label><select id="sb-task" data-f="sbtask"'+(c?"":" disabled")+'><option value="">Ninguna</option>'+Ts.map(function(t){return '<option value="'+t.id+'"'+(t.id===m.tarea?" selected":"")+'>'+esc(t.title+" · "+fshort(t.date))+'</option>'}).join("")+'</select></div></div>';
   }
   h+='<div class="field"><label for="sb-notas">'+(ver?"Qué cambió (opcional)":"Notas (opcional)")+'</label><textarea id="sb-notas" style="min-height:60px" maxlength="2000"></textarea></div>';
@@ -1611,7 +1619,7 @@ function entregaModal(m){
   cargarCfg();
   var a=acc(e.cuentaId),L=listaDe(e),t=e.tareaId?taskById(e.tareaId):null;
   var vs=(e.versiones||[]).slice().sort(function(x,y){return y.version-x.version}),v=vs.find(function(x){return x.version===(m.v||e.version)})||vs[0];
-  var h='<div class="row" style="justify-content:space-between;align-items:flex-start"><div class="muted small" style="min-width:0">'+(a?accDot(a)+' '+esc(a.name):"")+(L?' · '+esc(L.name):"")+'</div>'+cerrar+'</div>';
+  var h='<div class="row" style="justify-content:space-between;align-items:flex-start"><div class="muted small" style="min-width:0">'+(a?accDot(a)+' '+esc(a.name):"")+(L?' · '+esc(listaNombre(L)):"")+'</div>'+cerrar+'</div>';
   h+='<div><h2 style="font-size:24px;overflow-wrap:anywhere">'+esc(e.nombre)+'</h2><div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">'+enPill(e)+(e.borrada?'<span class="pill risk-atrasada">En la papelera</span>':"")+'<span class="muted small">Versión '+v.version+(vs.length>1?' de '+vs.length:"")+(v.version!==e.version?' · no es la más reciente':"")+'</span></div></div>';
   h+=vistaPrevia(e,v);
   h+='<div class="actions"><a class="btn primary" href="'+esc(urlArchivo(e,v.version,true))+'" download>Descargar</a>'+(e.borrada?"":'<button class="btn" data-act="ensubirv" data-id="'+e.id+'">'+ic("upload")+' Subir versión nueva</button>')+(t?'<button class="btn" data-act="open" data-id="'+t.id+'">Ver la tarea</button>':"")+'</div>';
@@ -1780,7 +1788,7 @@ function juntaModal(m){
       '<div class="field"><label for="jt-t-'+i+'">Pendiente</label><input id="jt-t-'+i+'" value="'+esc(f.titulo)+'" maxlength="200"></div>'+
       '<div class="two"><div class="field"><label for="jt-p-'+i+'">Para</label><select id="jt-p-'+i+'" data-f="jt"><option value="">Sin asignar</option>'+S.users.map(function(u){return '<option value="'+u.id+'"'+(u.id===f.persona?" selected":"")+'>'+esc(u.name)+'</option>'}).join("")+'</select></div>'+
       '<div class="field"><label for="jt-c-'+i+'">Cuenta</label><select id="jt-c-'+i+'" data-f="jt"><option value="">Ninguna (a su Agenda)</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===f.cuenta?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div></div>'+
-      (f.cuenta&&Ls.length>1?'<div class="field"><label for="jt-l-'+i+'">Lista</label><select id="jt-l-'+i+'" data-f="jt">'+Ls.map(function(l){return '<option value="'+l.id+'"'+(l.id===f.lista?" selected":"")+'>'+esc(l.name)+'</option>'}).join("")+'</select></div>':"")+
+      (f.cuenta&&Ls.length>1?'<div class="field"><label for="jt-l-'+i+'">Lista</label><select id="jt-l-'+i+'" data-f="jt">'+Ls.map(function(l){return '<option value="'+l.id+'"'+(l.id===f.lista?" selected":"")+'>'+esc(listaNombre(l))+'</option>'}).join("")+'</select></div>':"")+
       (f.nota?'<div class="small" style="color:var(--warn);font-weight:600">'+esc(f.nota)+'</div>':"")+'</div>';
   });
   return h+'<div class="actions"><button class="btn" type="button" data-act="jtatras">Editar el texto</button><button class="btn primary" type="submit"'+(n?"":" disabled")+'>Crear '+n+(n===1?" pendiente":" pendientes")+'</button></div></form>';
@@ -1998,6 +2006,34 @@ function importarCt(){
   S.modal=null;save();toast(n+(n===1?" contacto importado":" contactos importados"));
 }
 
+/* ---------- Subcarpetas: agrupan listas dentro de una cuenta (p. ej., Brizna y Trufas dentro de Brizna) ---------- */
+function listaNombre(l){return l?(l.grupo?l.grupo+" · ":"")+l.name:""}
+function subcarpetas(accId){
+  var m={},orden=[];
+  S.lists.filter(function(l){return l.acc===accId}).forEach(function(l){var g=l.grupo||"";if(!(g in m)){m[g]=[];orden.push(g)}m[g].push(l)});
+  orden.sort(function(a,b){return a===""?-1:b===""?1:a.localeCompare(b,"es")});
+  return orden.map(function(g){return{nombre:g,listas:m[g]}});
+}
+function conSubcarpetas(accId){return S.lists.some(function(l){return l.acc===accId&&l.grupo})}
+function subcarpetaModal(m){
+  var a=acc(m.acc);if(!a)return "";
+  var sueltas=S.lists.filter(function(l){return l.acc===a.id&&!l.grupo});
+  return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Nueva subcarpeta</h2><button class="btn" data-act="close">Cerrar</button></div><form id="subcForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><p class="muted small" style="margin:0">Cuenta: <b>'+esc(a.name)+'</b>. Una subcarpeta agrupa listas dentro de la cuenta, por ejemplo una marca o una línea de productos. Nace con una lista de redes del mes y una de diseño.</p>'+
+  '<div class="field"><label for="sc-n">Nombre de la subcarpeta</label><input id="sc-n" required maxlength="60" autocomplete="off"></div>'+
+  (sueltas.length?'<div class="field"><label for="sc-prev">Las '+sueltas.length+(sueltas.length===1?" lista que ya tiene":" listas que ya tiene")+' la cuenta quedan en la subcarpeta</label><input id="sc-prev" required maxlength="60" value="'+esc(a.name)+'"></div>':"")+
+  '<div class="err" id="scerr" role="alert"></div><button class="btn primary" type="submit" style="align-self:flex-start">Crear subcarpeta</button></form>';
+}
+function crearSubcarpeta(){
+  var m=S.modal,a=acc(m.acc),er=document.getElementById("scerr");if(!a)return;
+  var n=val("sc-n").trim(),prev=document.getElementById("sc-prev")?val("sc-prev").trim():"";
+  var usados=S.lists.filter(function(l){return l.acc===a.id&&l.grupo}).map(function(l){return norm(l.grupo)});
+  if(!n){er.textContent="Escribe el nombre de la subcarpeta.";return}
+  if(usados.indexOf(norm(n))>-1||(prev&&norm(prev)===norm(n))){er.textContent="Ya hay una subcarpeta con ese nombre en esta cuenta.";return}
+  if(document.getElementById("sc-prev")&&!prev){er.textContent="Escribe el nombre para las listas que ya existen.";return}
+  if(prev)S.lists.forEach(function(l){if(l.acc===a.id&&!l.grupo)l.grupo=prev});
+  S.lists.push({id:"l"+nid(),acc:a.id,type:"redes",name:monthLabel(ym(0)),grupo:n},{id:"l"+nid(),acc:a.id,type:"diseno",name:"Diseño",grupo:n});
+  S.modal=null;S.view="space";S.spaceId=a.id;S.toTop=true;save();toast("Subcarpeta «"+n+"» creada con sus dos listas");
+}
 /* ---------- Modales ---------- */
 function modal(){
   var m=S.modal,h='<div class="overlay" data-act="closebg"><div class="drawer" role="dialog" aria-modal="true">';
@@ -2021,13 +2057,14 @@ function modal(){
   else if(m.kind==="subir")h+=subirModal(m);
   else if(m.kind==="purgar")h+=purgarModal(m);
   else if(m.kind==="junta")h+=juntaModal(m);
+  else if(m.kind==="subcarpeta")h+=subcarpetaModal(m);
   else if(m.kind==="contacto")h+=ctModal(m);
   else if(m.kind==="importar")h+=impModal(m);
   return h+'</div></div>';
 }
 function taskModal(t){
   var a=acc(t.acc),L=listById(t.list),st=sts(t),i=sIdx(t),ed=canEdit(t),dis=ed?"":" disabled";
-  var h='<div class="row" style="justify-content:space-between;align-items:flex-start"><div style="min-width:0"><div class="muted small">'+accDot(a)+' '+esc(a.name)+' · '+esc(L?L.name:"")+' · '+TYPES[t.type]+'</div></div><button class="btn" data-act="close">Cerrar</button></div>';
+  var h='<div class="row" style="justify-content:space-between;align-items:flex-start"><div style="min-width:0"><div class="muted small">'+accDot(a)+' '+esc(a.name)+' · '+esc(listaNombre(L))+' · '+TYPES[t.type]+'</div></div><button class="btn" data-act="close">Cerrar</button></div>';
   h+='<div class="field"><label for="e-title" class="sr">Título</label><input id="e-title" class="bigtitle" data-f="tf" data-k="title" data-id="'+t.id+'" value="'+esc(t.title)+'"'+dis+'></div>';
   h+='<div class="stepper">'+st.map(function(s,j){return '<div class="step '+(j<i?"done":j===i?"now":"")+'">'+esc(s.n)+'</div>'}).join("")+'</div>';
   h+='<div class="props panel"><div class="prop"><span class="pl">Estado</span><span>'+stCell(t,"lista")+riskPill(t)+'</span></div><div class="prop"><span class="pl">Personas</span><span>'+whoCell(t)+'<span class="muted small">'+(t.assignees.length?esc(names(t.assignees)):"Sin asignar")+'</span></span></div><div class="prop"><span class="pl">Fecha</span><span>'+dateCell(t)+'</span></div><div class="prop"><span class="pl">Prioridad</span><span>'+prCell(t,"lista")+'</span></div>'+
@@ -2055,7 +2092,7 @@ function newTaskModal(){
   var Ls=S.lists.filter(function(l){return !dAcc||l.acc===dAcc||def===l.id});
   if(!Ls.length)Ls=S.lists;
   var cur=listById(def)||(sc&&sc.all?S.lists.find(function(l){return l.type===sc.type}):null)||Ls[0],ty=cur?cur.type:"redes";
-  return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Nueva tarea</h2><button class="btn" data-act="close">Cerrar</button></div><form id="newTaskForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="nt-list">Lista</label><select id="nt-list" data-f="ntlist">'+S.lists.map(function(l){return '<option value="'+l.id+'"'+(cur&&l.id===cur.id?" selected":"")+'>'+esc(shortName(acc(l.acc).name)+' · '+l.name)+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-title">Título</label><input id="nt-title" required></div><div class="two"><div class="field"><label for="nt-fmt">Formato</label><select id="nt-fmt">'+FORMATS[ty].map(function(f){return '<option>'+f+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-date">Fecha límite o de publicación</label><input id="nt-date" type="date" value="'+iso(7)+'" required></div></div><div class="two"><div class="field"><label for="nt-prio">Prioridad</label><select id="nt-prio"><option value="">Sin prioridad</option>'+PRIO.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-who">Responsable</label><select id="nt-who"><option value="">Automático según el estado</option>'+S.users.map(function(u){return '<option value="'+u.id+'">'+esc(u.name)+'</option>'}).join("")+'</select></div></div><div class="field"><label for="nt-desc">Descripción</label><textarea id="nt-desc" style="min-height:70px"></textarea></div><label class="chk small" for="nt-steps"><input type="checkbox" id="nt-steps" checked> Agregar los pasos sugeridos como subtareas</label><button class="btn primary" type="submit">Crear en «'+esc(S.stat[ty][0].n)+'»</button></form>';
+  return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Nueva tarea</h2><button class="btn" data-act="close">Cerrar</button></div><form id="newTaskForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="nt-list">Lista</label><select id="nt-list" data-f="ntlist">'+S.lists.map(function(l){return '<option value="'+l.id+'"'+(cur&&l.id===cur.id?" selected":"")+'>'+esc(shortName(acc(l.acc).name)+' · '+listaNombre(l))+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-title">Título</label><input id="nt-title" required></div><div class="two"><div class="field"><label for="nt-fmt">Formato</label><select id="nt-fmt">'+FORMATS[ty].map(function(f){return '<option>'+f+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-date">Fecha límite o de publicación</label><input id="nt-date" type="date" value="'+iso(7)+'" required></div></div><div class="two"><div class="field"><label for="nt-prio">Prioridad</label><select id="nt-prio"><option value="">Sin prioridad</option>'+PRIO.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-who">Responsable</label><select id="nt-who"><option value="">Automático según el estado</option>'+S.users.map(function(u){return '<option value="'+u.id+'">'+esc(u.name)+'</option>'}).join("")+'</select></div></div><div class="field"><label for="nt-desc">Descripción</label><textarea id="nt-desc" style="min-height:70px"></textarea></div><label class="chk small" for="nt-steps"><input type="checkbox" id="nt-steps" checked> Agregar los pasos sugeridos como subtareas</label><button class="btn primary" type="submit">Crear en «'+esc(S.stat[ty][0].n)+'»</button></form>';
 }
 function bloqueosCuenta(id){
   // Lo mismo que revisa el servidor (tareas, calendarios, entregas, contactos), más el tablero de marca con contenido.
@@ -2069,7 +2106,9 @@ function bloqueosCuenta(id){
 }
 function renameModal(m){
   var o=m.t==="acc"?acc(m.id):listById(m.id);
+  var grupos=m.t==="list"&&o?subcarpetas(o.acc).map(function(g){return g.nombre}).filter(Boolean):[];
   var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(m.t==="acc"?"Editar cuenta":"Editar lista")+'</h2><button class="btn" data-act="close">Cerrar</button></div><form id="renameForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="rn-n">'+(m.t==="acc"?"Nombre de la cuenta":"Nombre de la lista")+'</label><input id="rn-n" required maxlength="60" value="'+esc(o.name)+'"></div><button class="btn primary" type="submit" style="align-self:flex-start">Guardar</button></form>';
+  if(m.t==="list"&&o&&isAdmin()&&(o.grupo||grupos.length))h=h.replace('<button class="btn primary" type="submit"','<div class="field"><label for="rn-g">Subcarpeta</label><input id="rn-g" maxlength="60" list="rn-gl" value="'+esc(o.grupo||"")+'" placeholder="Sin subcarpeta"><datalist id="rn-gl">'+grupos.map(function(g){return '<option value="'+esc(g)+'">'}).join("")+'</datalist><p class="muted small" style="margin:0">Escribe otro nombre para mover la lista o para renombrar la subcarpeta de esta lista.</p></div><button class="btn primary" type="submit"');
   if(m.t==="acc"&&o&&isAdmin()){
     var bl=bloqueosCuenta(o.id);
     h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Eliminar cuenta</h3>'+(bl.length?'<p class="muted small" style="margin:0">No se puede eliminar porque todavía tiene '+esc(bl.join(", "))+'. Bórralas o muévelas primero.</p>':'<p class="muted small" style="margin:0">Se eliminan la cuenta y sus listas (están vacías). Lo que la mencionaba en la Agenda o la Pizarra se queda sin cuenta.</p><button class="btn danger" data-act="delacc" data-id="'+o.id+'" style="align-self:flex-start">'+(S.armed==="delacc"+o.id?seguro("eliminar la cuenta «"+esc(o.name)+"»"):"Eliminar cuenta")+'</button>')+'</div>';
@@ -2251,6 +2290,7 @@ function act(a,el){
     S.agenda.forEach(function(x){if(x.acc===id)x.acc=""});S.kanban.notes.forEach(function(n){if(n.acc===id)n.acc=""});
     if(S.accSel===id)S.accSel="";
     S.modal=null;S.view="spaces";S.toTop=true;save();return toast("Cuenta «"+da.name+"» eliminada");
+  case"subcnueva":S.modal={kind:"subcarpeta",acc:id};S.pop=null;return render();
   case"tema":return ponerTema(el.getAttribute("data-v")||"");
   case"ctnuevo":S.modal={kind:"contacto",acc:el.getAttribute("data-acc")||""};S.pop=null;return render();
   case"ctopen":S.modal={kind:"contacto",id:id};S.pop=null;return render();
@@ -2373,6 +2413,8 @@ function handleSubmit(form){
     var rec={kind:val("ag-kind"),title:val("ag-title").trim(),date:val("ag-date"),time:val("ag-time"),owner:u0.role==="admin"?val("ag-owner"):(ex?ex.owner:u0.id),acc:val("ag-acc"),notes:val("ag-notes")};
     if(ex){Object.keys(rec).forEach(function(q){ex[q]=rec[q]})}else{rec.id="a"+nid();rec.done=false;S.agenda.push(rec)}
     S.agDay=rec.date;S.agMonth=rec.date.slice(0,7);S.modal=null;save();toast(ex?"Cambios guardados":"Agregado a la agenda");
+  }else if(id==="subcForm"){
+    crearSubcarpeta();
   }else if(id==="ctForm"){
     guardarCt();
   }else if(id==="juntaForm"){
@@ -2416,7 +2458,9 @@ function handleSubmit(form){
   }else if(id==="renameForm"){
     var rm=S.modal,ro=rm.t==="acc"?acc(rm.id):listById(rm.id),rn=val("rn-n").trim();
     if(!ro||!rn||!isAdmin())return;
-    var old=ro.name;ro.name=rn;S.modal=null;save();toast("Nombre cambiado a «"+rn+"»");
+    var old=ro.name;ro.name=rn;
+    var rg=document.getElementById("rn-g");if(rm.t==="list"&&rg){var ng=rg.value.trim();if(ng)ro.grupo=ng;else delete ro.grupo}
+    S.modal=null;save();toast("Cambios guardados");
   }else if(id==="calForm"){
     var ca=val("nc-acc"),cm=val("nc-m").trim();
     if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(cm))return toast("Escribe el mes como AAAA-MM, por ejemplo 2026-11");

@@ -206,6 +206,10 @@ export async function manejarApi(request, env) {
 					if (a.motivo) { rechazados.push({ tipo: c.tipo, id: c.id, motivo: a.motivo }); continue; }
 					c.datos = a.datos;
 				}
+				if (c.tipo === 'list' && c.datos === null && q.usuario.role !== 'admin') {
+					rechazados.push({ tipo: c.tipo, id: c.id, motivo: 'Solo Dirección puede eliminar listas' });
+					continue;
+				}
 				if (c.tipo === 'account' && c.datos === null) {
 					const m = await motivoNoBorrarCuenta(env, c.id, q.usuario);
 					if (m) { rechazados.push({ tipo: c.tipo, id: c.id, motivo: m }); continue; }
