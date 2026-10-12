@@ -1,0 +1,34 @@
+{
+	// Worker único: sirve public/ y las rutas /api.
+	// La cuenta se toma de CLOUDFLARE_ACCOUNT_ID (no se escribe aquí).
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "eureka-hub",
+	"main": "src/index.js",
+	"compatibility_date": "2026-10-01",
+	"workers_dev": true,
+	"observability": { "enabled": true },
+
+	"assets": {
+		"directory": "./public",
+		"binding": "ASSETS",
+		// /api siempre pasa por el Worker; lo demás son archivos estáticos.
+		"run_worker_first": ["/api/*"]
+	},
+
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "eureka-hub-db",
+			"database_id": "4f8ebaa4-af26-4a82-9664-1843fcc31487",
+			"migrations_dir": "migrations"
+		}
+	],
+
+	// Bucket privado: sin dominio público ni r2.dev. Toda descarga pasa por el Worker.
+	"r2_buckets": [
+		{
+			"binding": "ENTREGAS",
+			"bucket_name": "eureka-hub-entregas"
+		}
+	]
+}

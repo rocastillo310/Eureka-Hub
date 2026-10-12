@@ -1,0 +1,15 @@
+{
+  "name": "eureka-hub",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Centro Eureka Hub: plataforma interna de la agencia Eureka Hub",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "wrangler": "4.147.0"
+  }
+}

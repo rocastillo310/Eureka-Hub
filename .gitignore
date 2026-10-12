@@ -1,0 +1,26 @@
+# Dependencias y archivos generados
+node_modules/
+.wrangler/
+.cloudflare/
+dist/
+
+# Secretos: nunca al repositorio (el repo es PÚBLICO)
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+
+# Datos reales del equipo y de clientes: nunca al repositorio
+seed/*.local.json
+respaldos/
+exportaciones/
+*.sqlite
+*.sqlite3
+*.db
+
+# Prototipo de referencia: no se commitea hasta quitarle todo rastro de ejemplos (F1)
+docs/prototipo/
+
+# Sistema
+.DS_Store
+Thumbs.db
