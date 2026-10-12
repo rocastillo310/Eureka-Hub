@@ -439,7 +439,7 @@ function ui(){
   S.q={text:"",who:"",preset:"",group:"estado",hideDone:false,type:"redes",acc:""};
   S.col={};S.exp={};S.open={};S.pop=null;S.modal=null;S.toast="";S.err="";
   S.calMonth=iso(0).slice(0,7);S.kf={acc:"",mine:false};S.agDay=iso(0);S.agMonth=iso(0).slice(0,7);S.agWho="yo";S.agMode="tareas";S.pubAcc="";
-  S.dr={stack:[{id:"1YpYEj0YfkVnl7Tr68wd_JXmCH-8jt3OS",name:"Equipo de diseño"}],items:null,loading:false,err:"",q:"",token:""};
+  S.dr={stack:[{id:"1YpYEj0YfkVnl7Tr68wd_JXmCH-8jt3OS",name:"EQUIPO DE DISEÑO"}],items:null,loading:false,err:"",q:"",token:""};
   S.ab={type:"redes",trig:"status",tv:"redaccion",act:"assign_role",av:"community"};
   S.newType="redes";S.nt=null;S.nl=null;
   if(S.accounts.length)S.open[S.accounts[0].id]=true;
@@ -673,14 +673,23 @@ function navBtn(v,label,icon,badge,cls){
   return '<button data-act="nav" data-v="'+v+'" class="'+(S.view===v?"on":"")+(cls?" "+cls:"")+'"><span class="row" style="gap:8px">'+ic(icon)+'<span>'+label+'</span></span>'+(badge?'<span class="cnt">'+badge+'</span>':"")+'</button>';
 }
 function pendCals(){return S.cals.filter(function(c){return c.state==="cliente"&&isAdmin()}).length}
+// Cuenta seleccionada en el menú: la de la vista actual (cuenta o lista) o la última elegida.
+function cuentaActual(){
+  if(S.view==="space"&&acc(S.spaceId))return S.spaceId;
+  var L=S.view==="list"?listById(S.listId):null;if(L)return L.acc;
+  return acc(S.accSel)?S.accSel:"";
+}
 function tree(){
-  var h='<div class="tree">';
-  S.accounts.forEach(function(a){
-    var op=S.open[a.id],ls=S.lists.filter(function(l){return l.acc===a.id});
-    h+='<div class="tacc"><div class="trow"><button class="tchev'+(op?" open":"")+'" data-act="togacc" data-id="'+a.id+'" aria-label="'+(op?"Cerrar":"Abrir")+' '+esc(shortName(a.name))+'" aria-expanded="'+(op?"true":"false")+'">'+ic("chev")+'</button><button class="tname'+(S.view==="space"&&S.spaceId===a.id?" on":"")+'" data-act="space" data-id="'+a.id+'">'+accDot(a)+'<span>'+esc(shortName(a.name))+'</span></button></div>';
-    if(op)h+=ls.map(function(l){return '<button class="tlist'+(S.view==="list"&&S.listId===l.id?" on":"")+'" data-act="list" data-id="'+l.id+'">'+ic(l.type==="redes"?"list":"grid")+'<span>'+esc(l.name)+'</span><small class="tnum">'+openCount(l)+'</small></button>'}).join("");
-    h+='</div>';
-  });
+  // Las cuentas van en un menú desplegable para no saturar la barra; debajo, solo las listas de la elegida.
+  var cur=cuentaActual(),ord=S.accounts.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")});
+  var h='<div class="tree"><select id="accsel" data-f="accsel" aria-label="Elegir cuenta" style="width:100%;margin:2px 0 6px">'+
+    '<option value="">'+(S.accounts.length?"Elegir cuenta ("+S.accounts.length+")…":"Sin cuentas todavía")+'</option>'+
+    ord.map(function(a){return '<option value="'+a.id+'"'+(a.id===cur?" selected":"")+'>'+esc(shortName(a.name))+'</option>'}).join("")+'</select>';
+  if(cur){
+    var a0=acc(cur);
+    h+='<button class="tlist'+(S.view==="space"&&S.spaceId===cur?" on":"")+'" data-act="space" data-id="'+cur+'">'+accDot(a0)+'<span>Resumen de la cuenta</span></button>';
+    h+=S.lists.filter(function(l){return l.acc===cur}).map(function(l){return '<button class="tlist'+(S.view==="list"&&S.listId===l.id?" on":"")+'" data-act="list" data-id="'+l.id+'">'+ic(l.type==="redes"?"list":"grid")+'<span>'+esc(l.name)+'</span><small class="tnum">'+openCount(l)+'</small></button>'}).join("");
+  }
   ["redes","diseno"].forEach(function(ty){h+='<button class="tlist glob'+(S.view==="list"&&S.listId==="all:"+ty?" on":"")+'" data-act="list" data-id="all:'+ty+'">'+ic("folder")+'<span>Todo · '+TYPES[ty]+'</span></button>'});
   return h+'</div>';
 }
@@ -827,9 +836,9 @@ function vSpaces(){
 function vSpace(){
   var a=acc(S.spaceId)||S.accounts[0];if(!a)return vSpaces();
   var ts=S.tasks.filter(function(t){return t.acc===a.id}),op=openTasks(ts);
-  var h='<div class="head"><div><div class="muted small crumb"><button class="btn small ghost" data-act="nav" data-v="spaces">Cuentas</button></div><h2>'+accDot(a)+' '+esc(a.name)+'</h2></div><div class="actions">'+(isAdmin()?'<button class="btn dots3" data-act="rename" data-t="acc" data-id="'+a.id+'" aria-label="Editar cuenta" title="Editar">⋯</button><button class="btn" data-act="newlist" data-id="'+a.id+'">+ Nueva lista</button>':"")+'<button class="btn primary" data-act="newtask" data-acc="'+a.id+'">+ Nueva tarea</button></div></div>';
+  var h='<div class="head"><div><div class="muted small crumb"><button class="btn small ghost" data-act="nav" data-v="spaces">Cuentas</button></div><h2>'+accDot(a)+' '+esc(a.name)+'</h2></div><div class="actions">'+(safeUrl(a.drive)?'<a class="btn" href="'+esc(safeUrl(a.drive))+'" target="_blank" rel="noopener">'+ic("drive")+' Carpeta en Drive</a>':"")+(isAdmin()?'<button class="btn dots3" data-act="rename" data-t="acc" data-id="'+a.id+'" aria-label="Editar cuenta" title="Editar">⋯</button><button class="btn" data-act="newlist" data-id="'+a.id+'">+ Nueva lista</button>':"")+'<button class="btn primary" data-act="newtask" data-acc="'+a.id+'">+ Nueva tarea</button></div></div>';
   h+='<div class="tiles">'+tile(op.length,"Abiertas")+tile(ts.filter(function(t){return risk(t)==="atrasada"}).length,"Atrasadas")+tile(ts.filter(function(t){return risk(t)==="riesgo"}).length,"En riesgo")+tile(ts.length-op.length,"Terminadas")+'</div>';
-  h+='<div class="panel"><h3 style="font-size:16px;margin-bottom:8px">Equipo de la cuenta</h3><div class="two" style="margin-top:4px">'+Object.keys(ROLES).map(function(k){var cur=a.team[k];return '<div class="field"><label for="tm-'+k+'">'+esc(ROLES[k])+'</label><select id="tm-'+k+'" data-f="team" data-id="'+a.id+'" data-role="'+k+'"'+(isAdmin()?"":" disabled")+'>'+S.users.filter(function(u){return u.role===k||u.id===cur}).map(function(u){return '<option value="'+u.id+'"'+(u.id===cur?" selected":"")+'>'+esc(u.name)+'</option>'}).join("")+'</select></div>'}).join("")+'</div><div class="muted small" style="margin-top:6px">Las automatizaciones asignan cada etapa a la persona de este equipo según el rol.</div></div>';
+  h+='<div class="panel"><h3 style="font-size:16px;margin-bottom:8px">Equipo de la cuenta</h3><div class="two" style="margin-top:4px">'+Object.keys(ROLES).map(function(k){var cur=a.team[k];return '<div class="field"><label for="tm-'+k+'">'+esc(ROLES[k])+'</label><select id="tm-'+k+'" data-f="team" data-id="'+a.id+'" data-role="'+k+'"'+(isAdmin()?"":" disabled")+'><option value=""'+(cur?"":" selected")+'>— Sin asignar —</option>'+S.users.filter(function(u){return u.role===k||u.id===cur}).map(function(u){return '<option value="'+u.id+'"'+(u.id===cur?" selected":"")+'>'+esc(u.name)+'</option>'}).join("")+'</select></div>'}).join("")+'</div><div class="muted small" style="margin-top:6px">Las automatizaciones asignan cada etapa a la persona de este equipo según el rol.</div></div>';
   h+='<div class="group"><h3>Listas</h3><div class="grid">'+S.lists.filter(function(l){return l.acc===a.id}).map(function(l){
     var lt=S.tasks.filter(function(t){return t.list===l.id}),dn=lt.filter(isFinal).length,pc=lt.length?Math.round(dn/lt.length*100):0;
     return '<button class="panel item" style="grid-template-columns:1fr" data-act="list" data-id="'+l.id+'"><span class="row" style="justify-content:space-between"><b>'+esc(l.name)+'</b><span class="muted small">'+TYPES[l.type]+'</span></span><span class="bar"><i style="width:'+pc+'%"></i></span><span class="muted small tnum">'+dn+' de '+lt.length+' terminadas · '+pc+'%</span></button>'}).join("")+'</div></div>';
@@ -1057,7 +1066,17 @@ function driveLoad(more){
 var DRERR={needs_reauth:"La conexión con Google Drive venció. Vuelve a conectarla en claude.ai, en Configuración, Conectores.",server_not_connected:"Aún no tienes Google Drive conectado. Agrégalo en claude.ai, en Configuración, Conectores.",selection_required:"Tienes más de un conector de Google Drive. Elige uno cuando la página te lo pida.",not_in_manifest:"No permitiste que esta página use tu Google Drive. Ábrela de nuevo y acepta el permiso.",blocked_by_policy:"Tu organización bloqueó el acceso a Google Drive desde páginas.",approval_required:"Tu organización pide aprobar cada lectura de Drive, y esta página aún no lo admite.",server_unavailable:"Google Drive no respondió. Intenta de nuevo en un momento.",not_granted:"Este modo de apertura no da acceso a conectores.",capability_disabled:"Este modo de apertura no da acceso a conectores."};
 function vDrive(){
   var h='<div class="head"><div><h2>Drive</h2><div class="muted">Carpeta compartida del equipo. Cada persona ve lo que su cuenta de Google puede ver.</div></div></div>';
-  if(!MCP)return h+'<div class="panel"><b>Disponible solo en la versión publicada en claude.ai</b><p class="muted" style="margin:6px 0 0">Para ver Drive aquí, abre el prototipo desde claude.ai con tu cuenta y tu conector de Google Drive conectado. El archivo HTML independiente no puede conectarse a Drive.</p></div>';
+  if(!MCP){
+    // Fuera de claude.ai: vista de la carpeta que ofrece Google para insertar. Google decide qué ve cada quien
+    // según la cuenta con la que tenga sesión en ese navegador; aquí no pasa ninguna clave ni dato de Drive.
+    var raiz=S.dr.stack[0],url="https://drive.google.com/drive/folders/"+encodeURIComponent(raiz.id);
+    var cuentas=S.accounts.filter(function(a){return safeUrl(a.drive)}).sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")});
+    h+='<div class="row" style="flex-wrap:wrap;gap:8px"><a class="btn primary" href="'+esc(url)+'" target="_blank" rel="noopener">Abrir «'+esc(raiz.name)+'» en Google Drive</a></div>';
+    h+='<div class="panel" style="padding:0;overflow:hidden"><iframe title="Carpeta '+esc(raiz.name)+' de Google Drive" src="https://drive.google.com/embeddedfolderview?id='+encodeURIComponent(raiz.id)+'#list" style="width:100%;height:60vh;border:0;background:#fff" loading="lazy"></iframe></div>';
+    h+='<p class="muted small" style="margin:0">Si la carpeta sale vacía o pide permiso, entra a Google con la cuenta que tiene acceso a la carpeta del equipo, o usa el botón para abrirla en Drive.</p>';
+    if(cuentas.length)h+='<div class="group"><h3>Carpetas de las cuentas</h3><div class="list">'+cuentas.map(function(a){return '<div class="item" style="grid-template-columns:1fr auto"><span class="t">'+accDot(a)+' '+esc(a.name)+'</span><a class="btn small" href="'+esc(safeUrl(a.drive))+'" target="_blank" rel="noopener">Abrir en Drive</a></div>'}).join("")+'</div></div>';
+    return h;
+  }
   var d=S.dr;
   h+='<form id="drForm" class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end"><div class="field" style="flex:1 1 220px"><label for="dr-q">Buscar en esta carpeta</label><input id="dr-q" value="'+esc(d.q)+'" placeholder="Nombre del archivo"></div><button class="btn primary" type="submit">Buscar</button>'+(d.q?'<button class="btn" type="button" data-act="drclear">Limpiar</button>':"")+'<button class="btn" type="button" data-act="drreload">Actualizar</button></form>';
   h+='<div class="row" style="flex-wrap:wrap;gap:4px">'+d.stack.map(function(c,i){return (i?'<span class="muted">/</span>':"")+(i===d.stack.length-1?'<b>'+esc(c.name)+'</b>':'<button class="btn small ghost" data-act="drcrumb" data-i="'+i+'">'+esc(c.name)+'</button>')}).join("")+'</div>';
@@ -1526,6 +1545,7 @@ document.addEventListener("change",function(e){
     save();
   }else if(f==="ucap"){var uu=user(id);if(uu&&isAdmin()){uu.cap=Math.max(1,Math.min(30,parseInt(el.value,10)||6));save()}}
   else if(f==="urole"){var ur=user(id);if(ur&&isAdmin()){if(ur.role==="admin"&&el.value!=="admin"&&!S.users.some(function(x){return x.id!==ur.id&&x.role==="admin"})){el.value=ur.role;return toast("Debe quedar al menos una persona en Dirección")}ur.role=el.value;save();render();toast("Rol de "+ur.name+": "+rolNombre(ur.role))}}
+  else if(f==="accsel"){S.accSel=el.value;if(el.value){S.view="space";S.spaceId=el.value}else S.view="spaces";S.modal=null;S.toTop=true;render()}
   else if(f==="uaprueba"){var ua=user(id);if(ua&&isAdmin()){ua.aprueba=!!el.checked;save();toast(ua.name+(ua.aprueba?" aprueba entregas":" ya no aprueba entregas"))}}
   else if(f==="team"){var ac=acc(id);if(ac&&isAdmin()){ac.team[el.getAttribute("data-role")]=el.value;save();toast("Equipo de la cuenta actualizado")}}
   else if(f==="ntlist"){var keep={t:val("nt-title"),d:val("nt-date"),p:val("nt-prio"),w:val("nt-who"),x:val("nt-desc")};S.modal.list=el.value;render();document.getElementById("nt-title").value=keep.t;document.getElementById("nt-date").value=keep.d;document.getElementById("nt-prio").value=keep.p;document.getElementById("nt-who").value=keep.w;document.getElementById("nt-desc").value=keep.x}
@@ -1824,6 +1844,7 @@ function sincronizar(){
     (r.entidades||[]).forEach(function(e){aplicar(e,act,enviados)});
     ordenar();
     SRV.cursor=r.cursor;fallos=0;avisoRed(false);
+    if(r.aviso)toast(r.aviso); // p. ej., la persona se guardó pero Cloudflare Access no se actualizó
     if(r.entidades&&r.entidades.length)render();
     enCurso=false;
     if(r.mas)return sincronizar();

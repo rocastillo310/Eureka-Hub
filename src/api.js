@@ -3,6 +3,7 @@
 // dos personas editando lo mismo no se pisen. Los permisos se revisan AQUÍ, no solo en la pantalla.
 import { merge3, sj } from './merge3.js';
 import { verificarAccess } from './access.js';
+import { correosDelEquipo, sincronizarPoliticaAccess } from './access-politica.js';
 
 export const TIPOS = new Set(['user', 'account', 'list', 'task', 'cal', 'ag', 'auto', 'inbox', 'note', 'cols', 'stat', 'seen', 'pref', 'board']);
 // Solo el rol admin escribe estos tipos (sección 5 del prompt).
@@ -180,17 +181,26 @@ export async function manejarApi(request, env) {
 			if (cambios.length > MAX_CAMBIOS) return error(413, 'Demasiados cambios en una sola solicitud');
 			for (const c of cambios) { const m = validarCambio(c); if (m) return error(400, m); }
 			const rechazados = [];
+			let cambioEquipo = false;
 			for (const c of cambios) {
 				const motivo = permiso(q.usuario, c);
 				if (motivo) { rechazados.push({ tipo: c.tipo, id: c.id, motivo }); continue; }
+				if (c.tipo === 'user' && c.datos && typeof c.datos.email === 'string') c.datos.email = c.datos.email.trim().toLowerCase();
 				await aplicarCambio(env, c, q.usuario.id);
+				if (c.tipo === 'user') cambioEquipo = true;
+			}
+			// Si cambió el equipo, la lista de correos de Cloudflare Access se pone igual a la de la base.
+			let aviso;
+			if (cambioEquipo) {
+				const r = await sincronizarPoliticaAccess(env, await correosDelEquipo(env));
+				if (!r.ok) aviso = `Se guardó en el equipo, pero Cloudflare Access no se actualizó: ${r.motivo}. Agrega el correo a mano en el dashboard.`;
 			}
 			const { entidades, cursor, mas } = await cambiosDesde(env, desde);
 			// Lo rechazado vuelve con su estado del servidor para que la pantalla deshaga el cambio local.
 			for (const r of rechazados) {
 				if (!entidades.some((e) => e.tipo === r.tipo && e.id === r.id)) entidades.push(await estadoActual(env, r.tipo, r.id));
 			}
-			return resp({ entidades, cursor, mas, ...(rechazados.length ? { rechazados } : {}) });
+			return resp({ entidades, cursor, mas, ...(rechazados.length ? { rechazados } : {}), ...(aviso ? { aviso } : {}) });
 		}
 
 		return error(404, 'Ruta no encontrada');

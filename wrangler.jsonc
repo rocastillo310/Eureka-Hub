@@ -8,6 +8,11 @@
 	"workers_dev": true,
 	"observability": { "enabled": true },
 
+	"vars": {
+		// Tamaño máximo por archivo entregado (F2). 4 GB, confirmado por Rodrigo el 12 oct 2026.
+		"MAX_ARCHIVO_MB": "4096"
+	},
+
 	"assets": {
 		"directory": "./public",
 		"binding": "ASSETS",
