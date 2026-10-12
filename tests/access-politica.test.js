@@ -9,8 +9,8 @@ const ENV = { CF_API_TOKEN: 'token-de-prueba', CF_ACCOUNT_ID: 'cuenta', ACCESS_P
 function apiFalsa(politica, { falla = false } = {}) {
 	const llamadas = [];
 	const buscar = async (url, op = {}) => {
-		llamadas.push({ url, metodo: op.method || 'GET', cuerpo: op.body ? JSON.parse(op.body) : null, auth: op.headers.authorization });
-		if (falla) return { ok: false, json: async () => ({ success: false }) };
+		llamadas.push({ url, metodo: op.method || 'GET', cuerpo: op.body ? JSON.parse(op.body) : null, auth: op.headers.authorization, ua: op.headers['user-agent'] });
+		if (falla) return { ok: false, status: 403, json: async () => ({ success: false, errors: [{ code: 10000, message: 'Authentication error' }] }) };
 		if (op.method === 'PUT') { Object.assign(politica, JSON.parse(op.body)); return { ok: true, json: async () => ({ success: true, result: politica }) }; }
 		return { ok: true, json: async () => ({ success: true, result: politica }) };
 	};
@@ -25,6 +25,7 @@ test('agregar a una persona: la política queda con todos los correos del equipo
 	const put = api.llamadas.find((l) => l.metodo === 'PUT');
 	assert.equal(put.url, 'https://api.cloudflare.com/client/v4/accounts/cuenta/access/policies/politica');
 	assert.equal(put.auth, 'Bearer token-de-prueba');
+	assert.ok(api.llamadas.every((l) => l.ua), 'todas las llamadas llevan User-Agent (si no, Cloudflare responde 1010)');
 	assert.deepEqual(put.cuerpo.include, conCorreos('ana@x.test', 'nueva@x.test'));
 });
 
@@ -71,4 +72,6 @@ test('si Cloudflare falla, avisa sin romper', async () => {
 	const r = await sincronizarPoliticaAccess(ENV, ['ana@x.test'], api.buscar);
 	assert.equal(r.ok, false);
 	assert.match(r.motivo, /No se pudo leer/);
+	assert.match(r.motivo, /HTTP 403, código 10000: Authentication error/);
+	assert.doesNotMatch(r.motivo, /token-de-prueba/); // el aviso nunca muestra el token
 });
