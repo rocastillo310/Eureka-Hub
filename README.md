@@ -94,8 +94,8 @@ docs/prototipo/ prototipo original de referencia (fuera de git)
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| F0 | Estructura, D1 y R2 creados, "hola" desplegado detrás de Access | falta activar Access |
-| F1 | `/api/yo`, `bootstrap`, `sync`, `merge3`, migraciones, equipo | hecho; falta probar con Access real |
+| F0 | Estructura, D1 y R2 creados, "hola" desplegado detrás de Access | hecho |
+| F1 | `/api/yo`, `bootstrap`, `sync`, `merge3`, migraciones, equipo | hecho |
 | F2 | Entregas con R2 | pendiente |
 | F3 | Área general, aprobaciones, inbox | pendiente |
 | F4 | Contactos y base de datos | pendiente |

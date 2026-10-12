@@ -15,6 +15,10 @@ const b64u = (x) => Buffer.from(x).toString('base64url');
 test('una identidad correcta devuelve el correo', async () => {
 	assert.deepEqual(await verificar(await firmar(bueno())), { ok: true, email: 'Persona@Agencia.test' });
 });
+test('secretos con salto de línea o espacios al final: igual funciona', async () => {
+	const r = await verificar(await firmar(bueno()), { ACCESS_EQUIPO: EQUIPO + '\r\n', ACCESS_AUD: ' ' + AUD + '\n' });
+	assert.equal(r.ok, true);
+});
 test('sin encabezado: rechaza', async () => assert.equal((await verificar(null)).ok, false));
 test('sin ACCESS_EQUIPO o ACCESS_AUD: rechaza (falla cerrado)', async () => {
 	assert.equal((await verificar(await firmar(bueno()), {})).ok, false);

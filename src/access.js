@@ -30,7 +30,8 @@ export function _reiniciarCache() { cacheLlaves = { equipo: null, hasta: 0, llav
 export async function verificarAccess(request, env, opciones = {}) {
 	const ahora = opciones.ahora || Date.now();
 	try {
-		const equipo = env.ACCESS_EQUIPO, aud = env.ACCESS_AUD;
+		// .trim(): un secreto guardado desde la consola puede traer un salto de línea invisible al final.
+		const equipo = (env.ACCESS_EQUIPO || '').trim(), aud = (env.ACCESS_AUD || '').trim();
 		if (!equipo || !aud) return { ok: false, motivo: 'Falta configurar Cloudflare Access (ACCESS_EQUIPO y ACCESS_AUD)' };
 		const jwt = request.headers.get('Cf-Access-Jwt-Assertion');
 		if (!jwt) return { ok: false, motivo: 'Falta la identidad de Cloudflare Access' };
