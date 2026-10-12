@@ -24,12 +24,53 @@ La cuenta de Cloudflare se toma de la variable `CLOUDFLARE_ACCOUNT_ID`; no se es
 
 Requisito: Node.js 22.18 o superior.
 
+1. Crea `.dev.vars` (fuera de git) con la línea `DEV_LOGIN=1`. Activa el selector de usuario de desarrollo.
+2. Crea `seed/equipo.local.json` (ver "Dar de alta al equipo") y carga la base local:
+
 ```bash
 npm install
+npm run seed:equipo
 npm run dev
 ```
 
-Abre <http://localhost:8787>. `GET /api/salud` responde `{"ok":true}`.
+Abre <http://localhost:8787> y entra escribiendo el usuario (por ejemplo `rodrigo`), sin contraseña.
+
+**Modo desarrollo:** el encabezado `X-Dev-User` solo funciona si `DEV_LOGIN=1` **y** la petición llega a `localhost`. En producción es imposible activarlo (lo comprueba `tests/api.test.js`).
+
+## Pruebas
+
+```bash
+npm test
+```
+
+Cubren la mezcla de tres vías (`merge3`, servidor y copia de la pantalla), la verificación del JWT de Access, los permisos del servidor, el modo desarrollo y la sincronización entre dos personas.
+
+## Dar de alta al equipo
+
+El equipo real vive en `seed/equipo.local.json`, que **nunca** se commitea:
+
+```json
+{ "equipo": [ { "id": "usuario", "name": "Nombre", "email": "correo@dominio", "role": "admin", "aprueba": true } ] }
+```
+
+- `role`: `admin`, `community`, `diseno` o `""` (por definir). Al menos una persona debe ser `admin`.
+- La carga es repetible: lo que ya existe no se sobrescribe.
+- Local: `npm run seed:equipo`. Producción: `npm run seed:equipo -- --remote`.
+- Ya con la app en uso, Dirección agrega personas desde la pantalla **Equipo**. El mismo correo debe estar en la política de Cloudflare Access.
+
+## Cloudflare Access
+
+El Worker valida el JWT de Access (firma con las llaves del equipo de Zero Trust, `aud`, emisor y vencimiento). Necesita dos secretos:
+
+```bash
+npx wrangler secret put ACCESS_EQUIPO
+npx wrangler secret put ACCESS_AUD
+```
+
+- `ACCESS_EQUIPO`: el nombre del equipo de Zero Trust (lo que va antes de `.cloudflareaccess.com`).
+- `ACCESS_AUD`: la etiqueta AUD de la aplicación de Access del Worker.
+
+Sin ellos, la API falla cerrado: nadie ve datos.
 
 ## Desplegar
 
@@ -40,19 +81,21 @@ npm run deploy
 ## Estructura
 
 ```
-src/            Worker
-public/         archivos estáticos (la app)
-migrations/     migraciones de D1 (desde F1)
+src/            Worker: index.js (entrada), api.js (rutas), merge3.js, access.js
+public/         la app (prototipo sin datos de ejemplo, en modo servidor)
+migrations/     migraciones de D1
+seed/           base.json (configuración inicial); equipo.local.json fuera de git
+scripts/        seed-equipo.mjs
 tests/          pruebas (node --test)
-docs/prototipo/ prototipo de referencia (fuera de git hasta limpiarlo en F1)
+docs/prototipo/ prototipo original de referencia (fuera de git)
 ```
 
 ## Fases
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| F0 | Estructura, D1 y R2 creados, "hola" desplegado detrás de Access | en curso |
-| F1 | `/api/yo`, `bootstrap`, `sync`, `merge3`, migraciones, equipo | pendiente |
+| F0 | Estructura, D1 y R2 creados, "hola" desplegado detrás de Access | hecho |
+| F1 | `/api/yo`, `bootstrap`, `sync`, `merge3`, migraciones, equipo | hecho |
 | F2 | Entregas con R2 | pendiente |
 | F3 | Área general, aprobaciones, inbox | pendiente |
 | F4 | Contactos y base de datos | pendiente |

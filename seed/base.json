@@ -1,0 +1,38 @@
+{
+  "_nota": "Configuración inicial de la app (sin datos personales): etapas de tareas, columnas del Kanban y automatizaciones. Es la misma que trae el prototipo. Se carga con `npm run seed:equipo` solo si aún no existe.",
+  "stat": {
+    "redes": [
+      { "k": "redaccion", "n": "✍️ Redacción", "c": "amber" },
+      { "k": "diseno", "n": "🎨 Diseño", "c": "blue" },
+      { "k": "cliente", "n": "👀 Aprobación del cliente", "c": "purple" },
+      { "k": "programada", "n": "🗓️ Programada", "c": "teal", "soft": true },
+      { "k": "publicada", "n": "✅ Publicada", "c": "green", "final": true }
+    ],
+    "diseno": [
+      { "k": "brief", "n": "📝 Brief", "c": "amber" },
+      { "k": "diseno", "n": "🎨 Diseño", "c": "blue" },
+      { "k": "revision", "n": "🔎 Revisión", "c": "purple" },
+      { "k": "entregada", "n": "✅ Entregada", "c": "green", "final": true }
+    ]
+  },
+  "cols": [
+    { "id": "k1", "name": "Backlog", "limit": 0, "tone": "pro" },
+    { "id": "k2", "name": "Por iniciar", "limit": 0, "tone": "cli" },
+    { "id": "k3", "name": "En curso", "limit": 3, "tone": "red" },
+    { "id": "k4", "name": "Hecho", "limit": 0, "tone": "pub" }
+  ],
+  "autos": [
+    { "id": "au1", "type": "redes", "on": true, "trig": { "k": "status", "v": "redaccion" }, "act": { "k": "assign_role", "v": "community" } },
+    { "id": "au2", "type": "redes", "on": true, "trig": { "k": "status", "v": "diseno" }, "act": { "k": "assign_role", "v": "diseno" } },
+    { "id": "au3", "type": "redes", "on": true, "trig": { "k": "status", "v": "cliente" }, "act": { "k": "assign_role", "v": "admin" } },
+    { "id": "au4", "type": "redes", "on": true, "trig": { "k": "status", "v": "programada" }, "act": { "k": "assign_role", "v": "community" } },
+    { "id": "au5", "type": "redes", "on": true, "trig": { "k": "status", "v": "publicada" }, "act": { "k": "notify_role", "v": "admin" } },
+    { "id": "au6", "type": "diseno", "on": true, "trig": { "k": "status", "v": "brief" }, "act": { "k": "assign_role", "v": "admin" } },
+    { "id": "au7", "type": "diseno", "on": true, "trig": { "k": "status", "v": "diseno" }, "act": { "k": "assign_role", "v": "diseno" } },
+    { "id": "au8", "type": "diseno", "on": true, "trig": { "k": "status", "v": "revision" }, "act": { "k": "assign_role", "v": "admin" } },
+    { "id": "au9", "type": "redes", "on": true, "trig": { "k": "subs_done" }, "act": { "k": "advance" } },
+    { "id": "au10", "type": "diseno", "on": true, "trig": { "k": "subs_done" }, "act": { "k": "advance" } },
+    { "id": "au11", "type": "redes", "on": true, "trig": { "k": "due_soon", "v": 2 }, "act": { "k": "set_priority", "v": "urgente" } },
+    { "id": "au12", "type": "redes", "on": true, "trig": { "k": "due_soon", "v": 2 }, "act": { "k": "notify_assignees" } }
+  ]
+}
