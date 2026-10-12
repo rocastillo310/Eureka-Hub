@@ -82,7 +82,25 @@ Cuando Dirección agrega o cambia a alguien en **Equipo**, el Worker deja la lis
 - `ACCESS_POLITICA_ID`: id de la política reutilizable de Access de la app.
 - `CF_API_TOKEN`: token de API con **un solo permiso**: *Account · Access: Apps and Policies · Edit*, limitado a esta cuenta. Lo crea Dirección en el dashboard y lo guarda con `npx wrangler secret put CF_API_TOKEN`; nunca se pega en el chat ni en el repositorio.
 
+## Entregas (archivos)
+
+Se suben desde la vista **Entregas** (o arrastrando archivos a cualquier pantalla) y quedan en el bucket privado `eureka-hub-entregas`. Nadie descarga directo del bucket: todo pasa por el Worker con la identidad ya verificada.
+
+- **Subida en partes.** Un Worker no recibe peticiones de más de 100 MB (planes Free y Pro), así que el navegador manda el archivo en partes de 50 MiB por el Worker (`/api/entregas/iniciar`, `parte`, `completar`, `abortar`). R2 pide partes de al menos 5 MiB, todas iguales salvo la última, y como máximo 10,000. Un reel de 4 GB son 82 partes. Cada parte se reintenta sola 4 veces; después aparece «Reintentar», que manda solo las que faltan.
+- **Máximo por archivo:** `MAX_ARCHIVO_MB` en `wrangler.jsonc` (4096 = 4 GB).
+- **Tipos aceptados:** la lista está en `src/entregas.js` (`TIPOS_ARCHIVO`). El tipo se decide por la extensión en el servidor; ejecutables, páginas web y similares se rechazan. Se ven dentro de la app imágenes, video, audio y PDF; lo demás (incluido SVG) solo se descarga.
+- **Versiones:** subir sobre una entrega crea la versión siguiente y conserva las anteriores. La llave en R2 la arma el servidor: `entregas/{cuenta}/{entrega}/{versión}-{nombre-seguro}`.
+- **Borrado:** solo Dirección o quien creó la entrega. Primero va a la papelera (no toca R2); «Borrar para siempre» pide escribir BORRAR, borra todas sus versiones de R2 y queda en la actividad.
+- **Almacenamiento:** Ajustes muestra lo usado contra los 10 GB gratis de R2 (son de toda la cuenta de Cloudflare) y avisa desde el 80 %. Lo que pase se cobra por GB al mes; descargar no cuesta.
+- Las subidas que se quedan a medias las cancela R2 solo a los 7 días.
+
 ## Desplegar
+
+Si hay migraciones nuevas en `migrations/`, primero se aplican a la base de producción:
+
+```bash
+npx wrangler d1 migrations apply eureka-hub-db --remote
+```
 
 ```bash
 npm run deploy
@@ -91,7 +109,7 @@ npm run deploy
 ## Estructura
 
 ```
-src/            Worker: index.js (entrada), api.js (rutas), merge3.js, access.js
+src/            Worker: index.js (entrada), api.js (rutas), entregas.js (archivos en R2), entidades.js, merge3.js, access.js
 public/         la app (prototipo sin datos de ejemplo, en modo servidor)
 migrations/     migraciones de D1
 seed/           base.json (configuración inicial); equipo.local.json fuera de git
@@ -106,7 +124,7 @@ docs/prototipo/ prototipo original de referencia (fuera de git)
 |---|---|---|
 | F0 | Estructura, D1 y R2 creados, "hola" desplegado detrás de Access | hecho |
 | F1 | `/api/yo`, `bootstrap`, `sync`, `merge3`, migraciones, equipo | hecho |
-| F2 | Entregas con R2 | pendiente |
+| F2 | Entregas con R2 | hecho (falta la prueba con un video real en producción) |
 | F3 | Área general, aprobaciones, inbox | pendiente |
 | F4 | Contactos y base de datos | pendiente |
 | F5 | Respaldo y restauración | pendiente |

@@ -367,6 +367,26 @@ input.plain{border:1px solid var(--line);border-radius:8px;padding:8px 10px;back
 .mref figcaption .btn{margin-left:auto}
 .mlink{display:flex;flex-direction:column;gap:2px;padding:12px;font-weight:600;color:var(--accent);overflow-wrap:anywhere;text-decoration:none}
 .mlink:hover{text-decoration:underline}
+/* entregas */
+a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.dropzone{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;text-align:center;border:2px dashed var(--line);border-radius:12px;padding:18px;color:var(--muted);cursor:pointer;background:var(--surface);width:100%;font:inherit}
+.dropzone:hover,.dropzone:focus-within,body.arrastrando .dropzone{border-color:var(--accent);color:var(--accent)}
+body.arrastrando main{outline:3px dashed var(--accent);outline-offset:-6px}
+.item.enrow{grid-template-columns:48px minmax(0,1fr) auto;align-items:center}
+.enrow .thumb{grid-row:1/span 2;width:48px;height:48px;border-radius:8px;object-fit:cover;background:var(--surface2)}
+.enrow .ti{display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--muted);overflow:hidden}
+.enrow .meta{grid-column:2/-1}
+.card.enc{min-height:72px;justify-content:center}
+.upl{display:flex;flex-direction:column;gap:12px}
+.uplrow{display:flex;flex-direction:column;gap:6px}.uplrow .ut{overflow-wrap:anywhere;min-width:0}
+.prev{display:block;width:100%;max-height:60vh;border-radius:12px;background:#000;object-fit:contain}
+img.prev{background:var(--surface2)}
+audio.prev{background:transparent}
+.prev.pdf{height:70vh;max-height:none;border:1px solid var(--line);background:#fff}
+.sbf{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:10px;padding:10px}
+.sbf.bad{border-color:var(--bad)}
+.bar.alto i{background:var(--bad)}
+.upbar{display:block;width:100%;text-align:left;border:0;cursor:pointer}
 </style>
 <div id="app"></div>
 <script>
@@ -405,7 +425,9 @@ var ICONS={
  grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
  chev:'<path d="M9 6l6 6-6 6"/>',
  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
- plus:'<path d="M12 5v14M5 12h14"/>'
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ upload:'<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/>',
+ sliders:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'
 };
 var S=null,SRV=null;
 
@@ -432,7 +454,7 @@ function seed(){
   ];
   return {users:[{id:"rodrigo",name:"Rodrigo",role:"admin",pass:"",hue:0,cap:6}],accounts:[],lists:[],tasks:[],cals:[],agenda:[],
     kanban:{cols:[{id:"k1",name:"Backlog",limit:0,tone:"pro"},{id:"k2",name:"Por iniciar",limit:0,tone:"cli"},{id:"k3",name:"En curso",limit:3,tone:"red"},{id:"k4",name:"Hecho",limit:0,tone:"pub"}],notes:[]},
-    autos:autos,stat:JSON.parse(JSON.stringify(STAT0)),inbox:[],boards:{},seq:300};
+    autos:autos,stat:JSON.parse(JSON.stringify(STAT0)),inbox:[],boards:{},entregas:[],actividad:[],seq:300};
 }
 function ui(){
   S.seen=S.seen||{};S.moreCols=false;S.armed=null;S.inbTab="todo";S.view="dia";S.vw="tablero";S.listId="";
@@ -442,12 +464,14 @@ function ui(){
   S.dr={stack:[{id:"1YpYEj0YfkVnl7Tr68wd_JXmCH-8jt3OS",name:"EQUIPO DE DISEÑO"}],items:null,loading:false,err:"",q:"",token:""};
   S.ab={type:"redes",trig:"status",tv:"redaccion",act:"assign_role",av:"community"};
   S.newType="redes";S.nt=null;S.nl=null;
+  S.en={cuenta:"",lista:"",q:"",estado:"",persona:"",tipo:"",papelera:false};
   if(S.accounts.length)S.open[S.accounts[0].id]=true;
 }
 function load(){
   var d=null;try{d=JSON.parse(localStorage.getItem(KEY))}catch(e){}
   S=d&&d.tasks&&d.lists&&d.users?d:seed();
   if(!S.prefs)S.prefs={};if(!S.boards)S.boards={};if(!S.inbox)S.inbox=[];if(!S.seen)S.seen={};if(!S.autos)S.autos=seed().autos;if(!S.stat)S.stat=JSON.parse(JSON.stringify(STAT0));
+  S.entregas=[];S.actividad=[]; // solo existen con servidor
   S.session=null;ui();
   try{var u=sessionStorage.getItem(KEY+"-u");if(u&&S.users.some(function(x){return x.id===u}))S.session=u}catch(e){}
   applyPref();
@@ -654,7 +678,9 @@ function render(){
     });
     try{fs=ae.selectionStart;fe=ae.selectionEnd}catch(e){}
   }
+  var medios={};[].forEach.call(app.querySelectorAll("[data-keep]"),function(n){medios[n.getAttribute("data-keep")]=n});
   app.innerHTML=S.session?shell():loginView();
+  [].forEach.call(app.querySelectorAll("[data-keep]"),function(n){var o=medios[n.getAttribute("data-keep")];if(o&&n.parentNode)n.parentNode.replaceChild(o,n)});
   var d2=document.querySelector(".drawer");
   if(d2&&S._dk===dk)d2.scrollTop=dy;
   Object.keys(drafts).forEach(function(id){var el=document.getElementById(id);if(el&&el.value===el.defaultValue)el.value=drafts[id]});
@@ -668,7 +694,7 @@ function loginView(){
   return '<div class="login"><div class="login-art"><div class="brand" style="color:inherit"><i style="background:currentColor"></i> Centro Eureka Hub</div><div><h1>Lo que se promete al cliente, se publica a tiempo.</h1><p style="margin-top:14px">Un solo lugar para el calendario del mes, las tareas de cada cuenta, quién tiene la pelota y qué está en riesgo.</p></div><div class="flow"><span>Calendario</span><span>Aprobación</span><span>Creación</span><span>Publicación</span></div></div>'+
   '<form id="loginForm" class="login-form" novalidate><h2 style="font-size:28px">'+(S.crear?"Crear contraseña":"Entrar")+'</h2><div class="field"><label for="lu">Usuario</label><input id="lu" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" value="'+esc(S.lu||"")+'"'+(S.errField==="u"?' aria-invalid="true"':"")+'></div><div class="field"><label for="lp">Contraseña</label><input id="lp" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false"'+(S.errField==="p"?' aria-invalid="true"':"")+'><label class="chk small" for="showpw" style="text-transform:none;letter-spacing:0;font-weight:500"><input type="checkbox" id="showpw" data-act="showpw"> Mostrar contraseña</label></div>'+(S.crear?'<div class="field"><label for="lp2">Repite la contraseña</label><input id="lp2" type="password" autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck="false"></div><div class="muted small">Es tu primer ingreso: crea tu contraseña (mínimo 8 caracteres). Se guarda solo en este navegador.</div>':"")+(S.err?'<div class="loginerr" role="alert"><b>'+esc(S.err)+'</b></div>':"")+'<button class="btn primary" type="submit">Entrar</button></form></div>';
 }
-var SEC=["cals","auto","pizarra","drive","equipo","guia"];
+var SEC=["cals","auto","pizarra","drive","equipo","ajustes","guia"];
 function navBtn(v,label,icon,badge,cls){
   return '<button data-act="nav" data-v="'+v+'" class="'+(S.view===v?"on":"")+(cls?" "+cls:"")+'"><span class="row" style="gap:8px">'+ic(icon)+'<span>'+label+'</span></span>'+(badge?'<span class="cnt">'+badge+'</span>':"")+'</button>';
 }
@@ -695,12 +721,13 @@ function tree(){
 }
 function shell(){
   var u=me(),h='<div class="shell"><aside class="side"><div class="brand"><i></i> Eureka Hub</div><nav class="nav" aria-label="Principal">'+
-  navBtn("dia","Mi día","home")+navBtn("bandeja","Bandeja","inbox",unread())+navBtn("agenda","Agenda","calendar")+navBtn("panel","Panel","panel")+
+  navBtn("dia","Mi día","home")+navBtn("entregas","Entregas","upload")+navBtn("bandeja","Bandeja","inbox",unread())+navBtn("agenda","Agenda","calendar")+navBtn("panel","Panel","panel")+
   '<div class="navlbl">Espacios</div>'+navBtn("spaces","Cuentas","folder")+tree()+
-  '<div class="navlbl">Herramientas</div>'+navBtn("cals","Calendarios","check",pendCals()||"","sec")+navBtn("auto","Automatizaciones","bolt",0,"sec")+navBtn("pizarra","Pizarra Kanban","note",0,"sec")+navBtn("drive","Drive","drive",0,"sec")+navBtn("equipo","Equipo","users",0,"sec")+navBtn("guia","Guía","book",0,"sec")+
+  '<div class="navlbl">Herramientas</div>'+navBtn("cals","Calendarios","check",pendCals()||"","sec")+navBtn("auto","Automatizaciones","bolt",0,"sec")+navBtn("pizarra","Pizarra Kanban","note",0,"sec")+navBtn("drive","Drive","drive",0,"sec")+navBtn("equipo","Equipo","users",0,"sec")+navBtn("ajustes","Ajustes","sliders",0,"sec")+navBtn("guia","Guía","book",0,"sec")+
   '<button data-act="menu" class="moreNav'+(SEC.indexOf(S.view)>-1?" on":"")+'"><span class="row" style="gap:8px">'+ic("grid")+'<span>Más</span></span></button>'+
   '</nav><div class="me"><div class="row"><span class="avatar" style="background:'+avColor(u)+';color:#fff">'+esc(u.name[0])+'</span><span class="who"><b>'+esc(u.name)+'</b><div class="muted small">'+esc(rolNombre(u.role))+'</div></span></div><button class="btn small" data-act="logout">Salir</button></div></aside><main>';
   var al=alerts();
+  if(subActivas().length&&S.view!=="entregas")h+='<button class="banner upbar" id="subglobal" data-act="ennav">'+esc(subResumen())+'</button>';
   if(al&&S.view!=="panel")h+='<button class="banner alertbar" data-act="alertas">'+al+' tarea'+(al>1?"s":"")+' atrasada'+(al>1?"s":"")+' o en riesgo · Ver</button>';
   h+=view()+'</main>';
   if(S.modal)h+=modal();
@@ -713,6 +740,7 @@ function view(){
     case"dia":return vDia();case"bandeja":return vBandeja();case"agenda":return vAgenda();case"panel":return vPanel();
     case"spaces":return vSpaces();case"space":return vSpace();case"list":return vList();
     case"cals":return vCals();case"auto":return vAuto();case"pizarra":return vKanban();case"drive":return vDrive();case"equipo":return vEquipo();case"guia":return vGuia();
+    case"entregas":return vEntregas();case"ajustes":return vAjustes();
   }
   return vDia();
 }
@@ -1194,6 +1222,7 @@ function vGuia(){
   '<h3>Alertas</h3><ul><li><b>En riesgo:</b> faltan 2 días o menos y la tarea aún no está en una etapa final o programada.</li><li><b>Atrasada:</b> pasó la fecha y no está terminada.</li></ul>'+
   '<h3>Bandeja, Mi día y Panel</h3><p>Bandeja junta los avisos. Mi día muestra tus tareas por urgencia. Panel resume todas las cuentas.</p>'+
   '<h3>Pizarra Kanban y Agenda</h3><p>La pizarra son notas libres con columnas y límites; una nota se puede convertir en tarea. La Agenda junta actividades, tareas personales y las fechas de entrega de tus tareas. En su pestaña «Publicaciones» ves solo lo que se publica cada día en redes, de todas las cuentas o de una.</p>'+
+  '<h3>Entregas</h3><p>Aquí se sube todo lo que se entrega: video, imágenes, PDF, documentos y archivos de diseño. Se ordena por cuenta y luego por lista. Arrastra los archivos a la pantalla o usa «Subir»; si se corta el internet, «Reintentar» sigue donde se quedó. Para corregir algo, abre la entrega y sube una versión nueva: las anteriores se conservan. Borrar manda a la papelera; borrar para siempre lo hace Dirección o quien creó la entrega, y pide confirmación.</p>'+
   '<h3>Drive</h3><p>Muestra la carpeta compartida del equipo de diseño, solo lectura. Puedes abrir archivos y vincularlos a una tarea.</p>'+
   '<h3>Sobre este prototipo</h3><p>Mientras no haya servidor, los datos se guardan solo en este navegador y la contraseña se crea en el primer ingreso. El inicio de sesión es de piloto: la versión real necesita un servidor para guardar contraseñas de forma segura y compartir los datos entre todos.</p></div>';
 }
@@ -1287,6 +1316,300 @@ function shrinkImage(file,cb){
   }catch(e){cb(null)}
 }
 
+/* ---------- Entregas (F2) ----------
+   Los archivos viven en R2 y todo pasa por el servidor: la pantalla nunca ve llaves ni enlaces directos al bucket.
+   Subida en partes (el tamaño lo decide el servidor), varias a la vez, con reintentos y progreso por parte. */
+var CFG=null,SUB=[],PARALELO=3,REINTENTOS=4,GRATIS_BYTES=10*1024*1024*1024; // 10 GB al mes gratis de R2 (toda la cuenta)
+var ESTADO_EN={pendiente:["Pendiente de aprobación","st-cliente"],aprobada:["Aprobada","st-publicada"],cambios:["Pidieron cambios","st-redaccion"]};
+var TIPO_EN=[["video","Video"],["imagen","Imagen"],["audio","Audio"],["pdf","PDF"],["documento","Documento"],["diseno","Diseño"],["otro","Otro"]];
+var SUBTXT={esperando:"En espera",subiendo:"Subiendo",completando:"Terminando…",listo:"Listo",error:"No se pudo subir"};
+function cargarCfg(){if(!SRV||CFG||cargarCfg.va)return;cargarCfg.va=true;api("entregas/config").then(function(c){CFG=c;if(S&&S.session)render()}).catch(function(){cargarCfg.va=false})}
+function extDe(n){var m=/.\.([A-Za-z0-9]{1,10})$/.exec(n||"");return m?m[1].toLowerCase():""}
+function sinExt(n){var x=extDe(n);return x?n.slice(0,n.length-x.length-1):n}
+// Unidades de 1024, como las muestra el Explorador de Windows (y como se fijó el máximo: 4096 MB = 4 GB).
+function fbytes(b){b=+b||0;var K=1024,M=K*K,G=M*K;if(b<K)return b+" B";if(b<M)return Math.round(b/K)+" KB";if(b<G)return(b/M).toFixed(b<10*M?1:0)+" MB";var g=b/G;return(g%1===0?g:g.toFixed(g<10?2:1))+" GB"}
+function tipoEn(m){m=m||"";if(/^video\//.test(m))return"video";if(/^image\/(jpeg|png|gif|webp|avif|bmp|heic|heif|tiff)$/.test(m))return"imagen";if(/^audio\//.test(m))return"audio";if(m==="application/pdf")return"pdf";if(/photoshop|postscript|indesign|svg|octet-stream|^font\//.test(m))return"diseno";if(/word|excel|sheet|powerpoint|presentation|opendocument|apple|^text\/|rtf/.test(m))return"documento";return"otro"}
+function tipoNombre(k){var t=TIPO_EN.find(function(x){return x[0]===k});return t?t[1]:"Archivo"}
+function previa(m){return !!(CFG&&CFG.vistaPrevia.indexOf(m)>-1)}
+function entById(id){return S.entregas.find(function(e){return e.id===id})}
+function listaDe(e){return e.listaId?listById(e.listaId):null}
+function puedeBorrarEn(e){var u=me();return u.role==="admin"||e.creadoPor===u.id}
+// Con ?v= la dirección siempre apunta al mismo contenido, así el navegador puede guardarla en caché.
+function urlArchivo(e,v,descargar){return "/api/entregas/archivo?id="+encodeURIComponent(e.id)+"&v="+(v||e.version)+(descargar?"&descargar=1":"")+(SRV&&SRV.dev?"&devUser="+encodeURIComponent(S.session):"")}
+function enPill(e){var s=ESTADO_EN[e.estado]||ESTADO_EN.pendiente;return '<span class="pill '+s[1]+'">'+s[0]+'</span>'}
+function enOrden(a,b){return a.subidoEn<b.subidoEn?1:a.subidoEn>b.subidoEn?-1:0}
+function enTam(e){return(e.versiones||[]).reduce(function(s,v){return s+v.tamano},0)}
+function usoBytes(){var t=0,p=0;S.entregas.forEach(function(e){var x=enTam(e);t+=x;if(e.borrada)p+=x});return{total:t,papelera:p}}
+function enFiltros(){var f=S.en;return !!(f.q.trim()||f.estado||f.persona||f.tipo)}
+function enFiltrar(arr){
+  var f=S.en,q=norm(f.q.trim());
+  return arr.filter(function(e){
+    if(f.estado&&e.estado!==f.estado)return false;
+    if(f.persona&&e.subidoPor!==f.persona&&e.creadoPor!==f.persona)return false;
+    if(f.tipo&&tipoEn(e.mime)!==f.tipo)return false;
+    if(q){var a=acc(e.cuentaId),L=listaDe(e);if(norm([e.nombre,e.archivo,e.notas,a&&a.name,L&&L.name].join(" ")).indexOf(q)<0)return false}
+    return true;
+  });
+}
+function enSel(id,df,label,ops,v){return '<div class="field" style="flex:1 1 100px"><label for="'+id+'">'+label+'</label><select id="'+id+'" data-f="'+df+'">'+ops.map(function(o){return '<option value="'+esc(o[0])+'"'+(o[0]===v?" selected":"")+'>'+esc(o[1])+'</option>'}).join("")+'</select></div>'}
+function enFiltrosHtml(){
+  var f=S.en;
+  return '<div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end"><div class="field" style="flex:1 1 200px"><label for="en-q">Buscar</label><input id="en-q" data-f="enq" value="'+esc(f.q)+'" placeholder="Nombre, archivo, notas, cuenta…" autocomplete="off"></div>'+
+  enSel("en-est","enestado","Estado",[["","Todos"]].concat(Object.keys(ESTADO_EN).map(function(k){return[k,ESTADO_EN[k][0]]})),f.estado)+
+  enSel("en-per","enpersona","Persona",[["","Todas"]].concat(S.users.map(function(u){return[u.id,u.name]})),f.persona)+
+  enSel("en-tip","entipo","Tipo",[["","Todos"]].concat(TIPO_EN),f.tipo)+
+  (enFiltros()?'<button class="btn" data-act="enclear">Limpiar</button>':"")+'</div>';
+}
+function enRow(e){
+  var a=acc(e.cuentaId),L=listaDe(e),k=tipoEn(e.mime);
+  var mini=k==="imagen"&&previa(e.mime)&&e.tamano<=8e6?'<img class="thumb" src="'+esc(urlArchivo(e))+'" alt="" loading="lazy">':'<span class="thumb ti" aria-hidden="true">'+esc(extDe(e.archivo).toUpperCase()||"?")+'</span>';
+  return '<button class="item enrow" data-act="enopen" data-id="'+e.id+'">'+mini+'<span class="t">'+esc(e.nombre)+(e.version>1?' <span class="muted small">v'+e.version+'</span>':"")+'</span><span>'+enPill(e)+'</span><span class="meta">'+(a?accDot(a)+esc(shortName(a.name)):"")+(L?' · '+esc(L.name):"")+' · '+tipoNombre(k)+' · '+fbytes(e.tamano)+' · '+esc(uname(e.subidoPor))+' · '+ftime(e.subidoEn)+'</span></button>';
+}
+function carpeta(id,nombre,n,icono){return '<button class="card enc" data-act="ennav" data-l="'+esc(id)+'"><span class="t row" style="gap:8px">'+ic(icono)+esc(nombre)+'</span><span class="muted small tnum">'+(n?n+(n===1?" entrega":" entregas"):"Vacía")+'</span></button>'}
+function vEntregas(){
+  var h='<div class="head"><div>';
+  if(!SRV)return h+'<h2>Entregas</h2></div></div><div class="empty">Las entregas se guardan en el servidor. Abre la plataforma desde su dirección en internet para subir archivos.</div>';
+  cargarCfg();
+  var f=S.en,a=acc(f.cuenta),L=f.lista&&f.lista!=="_"?listById(f.lista):null;
+  var vivas=S.entregas.filter(function(e){return !e.borrada}),pap=S.entregas.filter(function(e){return e.borrada});
+  var crumb=[];
+  if(a||f.papelera)crumb.push('<button class="btn small ghost" data-act="ennav" data-c="">Entregas</button>');
+  if(a&&f.lista&&!f.papelera)crumb.push('<button class="btn small ghost" data-act="ennav" data-c="'+a.id+'">'+esc(shortName(a.name))+'</button>');
+  var titulo=f.papelera?"Papelera":L?L.name:a&&f.lista==="_"?"Sin lista":a?a.name:"Entregas";
+  h+=(crumb.length?'<div class="muted small crumb">'+crumb.join(" / ")+'</div>':"")+'<h2>'+(a&&!f.lista&&!f.papelera?accDot(a)+" ":"")+esc(titulo)+'</h2>'+(!a&&!f.papelera?'<div class="muted">Por cuenta y luego por lista. Cada archivo conserva todas sus versiones.</div>':"")+'</div><div class="actions">'+(pap.length&&!f.papelera?'<button class="btn" data-act="enpap">Papelera ('+pap.length+')</button>':"")+(f.papelera?"":'<button class="btn primary" data-act="ensubir">'+ic("upload")+' Subir</button>')+'</div></div>';
+  var uso=usoBytes();
+  if(uso.total>=GRATIS_BYTES*0.8)h+='<div class="banner" role="alert">El almacenamiento de entregas va en '+fbytes(uso.total)+' de los 10 GB gratis ('+Math.round(uso.total/GRATIS_BYTES*100)+' %). Lo que pase de 10 GB se cobra. Revisa la papelera o avisa a Dirección.</div>';
+  h+=subPanel();
+  if(f.papelera)return h+enPapelera(pap);
+  h+=enFiltrosHtml();
+  var drop='<div class="dropzone" data-act="ensubir">'+ic("upload")+'<span><b>Arrastra archivos aquí</b> o toca para elegirlos'+(CFG?' · hasta '+fbytes(CFG.maxBytes)+' cada uno':"")+'</span></div>';
+  if(enFiltros()){
+    var res=enFiltrar(vivas.filter(function(e){return(!a||e.cuentaId===a.id)&&(!a||!f.lista||(f.lista==="_"?!e.listaId:e.listaId===f.lista))})).sort(enOrden);
+    return h+'<div class="list">'+(res.length?res.map(enRow).join(""):'<div class="empty">No hay entregas con esos filtros.</div>')+'</div>';
+  }
+  if(!a){
+    if(!S.accounts.length)return h+'<div class="empty">Aún no hay cuentas. Dirección las crea en Cuentas.</div>';
+    h+='<div class="grid">'+S.accounts.slice().sort(function(x,y){return String(x.name).localeCompare(String(y.name),"es")}).map(function(c){
+      var es=vivas.filter(function(e){return e.cuentaId===c.id}).sort(enOrden),tam=es.reduce(function(s,e){return s+enTam(e)},0);
+      return '<button class="card enc" data-act="ennav" data-c="'+c.id+'"><span class="t">'+accDot(c)+' '+esc(c.name)+'</span><span class="muted small tnum">'+(es.length?es.length+(es.length===1?" entrega":" entregas")+' · '+fbytes(tam)+' · última '+ftime(es[0].subidoEn):"Sin entregas")+'</span></button>';
+    }).join("")+'</div>';
+    var rec=vivas.slice().sort(enOrden).slice(0,8);
+    if(rec.length)h+='<div class="group"><h3>Lo más reciente</h3><div class="list">'+rec.map(enRow).join("")+'</div></div>';
+    return h;
+  }
+  if(!f.lista){
+    var sin=vivas.filter(function(e){return e.cuentaId===a.id&&!e.listaId}).length;
+    h+=drop+'<div class="grid">'+S.lists.filter(function(l){return l.acc===a.id}).map(function(l){return carpeta(l.id,l.name,vivas.filter(function(e){return e.listaId===l.id}).length,l.type==="redes"?"list":"grid")}).join("")+(sin?carpeta("_","Sin lista",sin,"folder"):"")+'</div>';
+    var rec2=vivas.filter(function(e){return e.cuentaId===a.id}).sort(enOrden).slice(0,8);
+    if(rec2.length)h+='<div class="group"><h3>Lo más reciente de la cuenta</h3><div class="list">'+rec2.map(enRow).join("")+'</div></div>';
+    return h;
+  }
+  var es2=vivas.filter(function(e){return e.cuentaId===a.id&&(f.lista==="_"?!e.listaId:e.listaId===f.lista)}).sort(enOrden);
+  return h+drop+'<div class="list">'+(es2.length?es2.map(enRow).join(""):'<div class="empty">Esta carpeta está vacía. Sube el primer archivo.</div>')+'</div>';
+}
+function enPapelera(pap){
+  if(!pap.length)return '<div class="empty">La papelera está vacía.</div>';
+  return '<p class="muted small" style="margin:0">Lo que está aquí sigue ocupando almacenamiento hasta que se borra para siempre. Solo Dirección o quien creó la entrega puede restaurarla o borrarla.</p><div class="list">'+
+  pap.slice().sort(function(x,y){return x.borrada.en<y.borrada.en?1:-1}).map(function(e){
+    var a=acc(e.cuentaId),n=(e.versiones||[]).length,ok=puedeBorrarEn(e);
+    return '<div class="item" style="grid-template-columns:1fr auto"><button class="btn ghost t" style="justify-content:flex-start;text-align:left;padding:0" data-act="enopen" data-id="'+e.id+'">'+esc(e.nombre)+'</button><span class="actions">'+(ok?'<button class="btn small" data-act="enrest" data-id="'+e.id+'">Restaurar</button><button class="btn small danger" data-act="enpurga" data-id="'+e.id+'">Borrar para siempre</button>':"")+'</span><span class="meta">'+(a?accDot(a)+esc(shortName(a.name))+' · ':"")+n+(n===1?" versión":" versiones")+' · '+fbytes(enTam(e))+' · La mandó '+esc(uname(e.borrada.por))+' el '+ftime(e.borrada.en)+'</span></div>';
+  }).join("")+'</div>';
+}
+
+/* ---------- subida ---------- */
+function revisarArchivo(f){if(!CFG)return"";var x=extDe(f.name);if(!x||!CFG.tipos[x])return x?"No se aceptan archivos ."+x:"Le falta la extensión (.mp4, .pdf…)";if(!f.size)return"Está vacío";if(f.size>CFG.maxBytes)return"Pasa del máximo de "+fbytes(CFG.maxBytes);return""}
+function tamParte(j,n){return n<j.partes?j.parteBytes:j.file.size-j.parteBytes*(j.partes-1)}
+function subPct(j){if(j.estado==="listo")return 100;if(!j.partes)return 0;var t=0;for(var n=1;n<=j.partes;n++){if(j.hechas[n])t+=tamParte(j,n);else if(j.prog[n])t+=j.prog[n]}return Math.min(99,Math.floor(t/j.file.size*100))}
+function subActivas(){return SUB.filter(function(j){return j.estado==="subiendo"||j.estado==="completando"||j.estado==="esperando"})}
+function subResumen(){var a=subActivas(),t=0,h=0;a.forEach(function(j){t+=j.file.size;h+=j.file.size*subPct(j)/100});return "Subiendo "+a.length+(a.length===1?" archivo":" archivos")+" · "+(t?Math.floor(h/t*100):0)+" % · Ver"}
+function subRowHtml(j){
+  var p=subPct(j),vivo=j.estado==="subiendo"||j.estado==="esperando"||j.estado==="error";
+  return '<div class="uplrow" id="up-'+j.id+'"><div class="row" style="justify-content:space-between;gap:8px"><b class="ut">'+esc(j.datos.nombre||j.file.name)+'</b><span class="muted small tnum up-pct">'+(j.estado==="subiendo"?p+" %":"")+'</span></div><span class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+p+'" aria-label="Avance de '+esc(j.file.name)+'"><i style="width:'+p+'%"></i></span><div class="row" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><span class="muted small">'+esc(SUBTXT[j.estado]||j.estado)+' · '+fbytes(j.file.size)+(j.version>1?' · versión '+j.version:"")+(j.err?' · <b style="color:var(--bad)">'+esc(j.err)+'</b>':"")+'</span><span class="actions">'+(j.estado==="error"?'<button class="btn small primary" data-act="enreint" data-id="'+j.id+'">Reintentar</button>':"")+(j.estado==="listo"&&j.entregaId?'<button class="btn small" data-act="enopen" data-id="'+j.entregaId+'">Ver</button>':"")+(vivo?'<button class="btn small ghost" data-act="encancel" data-id="'+j.id+'">Cancelar</button>':"")+'</span></div></div>';
+}
+function subPanel(){
+  if(!SUB.length)return "";
+  return '<div class="panel upl" aria-live="polite"><div class="row" style="justify-content:space-between"><h3>Subidas</h3>'+(SUB.some(function(j){return j.estado==="listo"||j.estado==="error"})?'<button class="btn small ghost" data-act="enlimpiar">Quitar las terminadas</button>':"")+'</div>'+SUB.map(subRowHtml).join("")+'</div>';
+}
+// El avance se pinta sin volver a dibujar toda la pantalla (sería una vez por cada pedazo enviado).
+function pintarSub(){
+  if(pintarSub.r)return;
+  pintarSub.r=requestAnimationFrame(function(){
+    pintarSub.r=0;
+    SUB.forEach(function(j){var el=document.getElementById("up-"+j.id);if(!el)return;var p=subPct(j),b=el.querySelector(".bar"),t=el.querySelector(".up-pct");if(b){b.firstChild.style.width=p+"%";b.setAttribute("aria-valuenow",p)}if(t)t.textContent=j.estado==="subiendo"?p+" %":""});
+    var g=document.getElementById("subglobal");if(g)g.textContent=subResumen();
+  });
+}
+function espera(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function encolar(file,datos){var j={id:"j"+nid(),file:file,datos:datos,estado:"esperando",hechas:{},prog:{},xhrs:[],err:""};SUB.push(j);correrJob(j);return j}
+function correrJob(j){
+  j.estado="subiendo";j.err="";
+  var p=j.subida?Promise.resolve():api("entregas/iniciar",{archivo:j.file.name,tamano:j.file.size,nombre:j.datos.nombre||"",cuentaId:j.datos.cuentaId||"",listaId:j.datos.listaId||"",tareaId:j.datos.tareaId||"",notas:j.datos.notas||"",entregaId:j.datos.entregaId||""}).then(function(r){
+    j.subida=r.subida;j.entregaId=r.entregaId;j.version=r.version;j.parteBytes=r.parteBytes;j.partes=r.partes;j.hechas={};
+  });
+  render();
+  return p.then(function(){return subirPartes(j)}).then(function(){
+    if(j.estado==="cancelado")return;
+    j.estado="completando";render();
+    return api("entregas/completar",{subida:j.subida});
+  }).then(function(r){
+    if(!r||j.estado==="cancelado")return;
+    j.estado="listo";j.prog={};
+    sincronizar();
+    toast("Entregado: «"+((r.entrega&&r.entrega.nombre)||j.file.name)+"»"+(j.version>1?" · versión "+j.version:""));
+  }).catch(function(e){
+    if(j.estado==="cancelado")return;
+    if(e&&e.estado===404)j.subida=null; // la subida ya no existe en el servidor: el reintento empieza de cero
+    if(e&&e.estado===409&&e.datos&&e.datos.faltan)e.datos.faltan.forEach(function(n){delete j.hechas[n]});
+    j.estado="error";j.err=(e&&e.message)||"Error";j.prog={};render();
+  });
+}
+function subirPartes(j){
+  var pend=[];for(var n=1;n<=j.partes;n++)if(!j.hechas[n])pend.push(n);
+  j.prog={};
+  return new Promise(function(ok,mal){
+    var activos=0,fallo=false;
+    function sig(){
+      if(fallo)return;
+      if(j.estado==="cancelado"){fallo=true;return mal(new Error("Cancelada"))}
+      if(!pend.length&&!activos)return ok();
+      while(activos<PARALELO&&pend.length){
+        activos++;
+        parteConReintentos(j,pend.shift(),0).then(function(k){activos--;j.hechas[k]=true;delete j.prog[k];pintarSub();sig()},function(e){activos--;if(!fallo){fallo=true;mal(e)}});
+      }
+    }
+    sig();
+  });
+}
+function parteConReintentos(j,n,k){
+  return enviarParte(j,n).then(function(){return n}).catch(function(e){
+    var definitivo=e.estado&&e.estado>=400&&e.estado<500&&e.estado!==408&&e.estado!==429;
+    if(j.estado==="cancelado"||definitivo||k>=REINTENTOS)throw e;
+    j.prog[n]=0;
+    return espera(1000*Math.pow(2,k)).then(function(){return parteConReintentos(j,n,k+1)});
+  });
+}
+function enviarParte(j,n){
+  return new Promise(function(ok,mal){
+    var ini=(n-1)*j.parteBytes,x=new XMLHttpRequest();
+    j.xhrs.push(x);
+    function fin(){j.xhrs=j.xhrs.filter(function(z){return z!==x})}
+    x.open("PUT","/api/entregas/parte?subida="+encodeURIComponent(j.subida)+"&n="+n);
+    if(SRV&&SRV.dev){try{var u=sessionStorage.getItem(KEY+"-u");if(u)x.setRequestHeader("X-Dev-User",u)}catch(e){}}
+    x.upload.onprogress=function(ev){j.prog[n]=ev.loaded;pintarSub()};
+    x.onload=function(){
+      fin();
+      if(x.status>=200&&x.status<300)return ok();
+      var m="";try{m=JSON.parse(x.responseText).error}catch(e){}
+      var er=new Error(m||("Error "+x.status));er.estado=x.status;mal(er);
+    };
+    // Si la sesión de Access venció, la petición se redirige a la pantalla de entrada y termina aquí.
+    x.onerror=function(){fin();var er=new Error("Se cortó la conexión. Si sigue pasando, recarga la página.");er.estado=0;mal(er)};
+    x.onabort=function(){fin();var er=new Error("Cancelada");er.estado=0;mal(er)};
+    x.send(j.file.slice(ini,Math.min(ini+j.parteBytes,j.file.size)));
+  });
+}
+function cancelarSub(j){
+  j.estado="cancelado";
+  j.xhrs.forEach(function(x){try{x.abort()}catch(e){}});
+  if(j.subida)api("entregas/abortar",{subida:j.subida}).catch(function(){});
+  SUB=SUB.filter(function(z){return z!==j});
+}
+window.addEventListener("beforeunload",function(e){if(subActivas().length){e.preventDefault();e.returnValue=""}});
+
+/* ---------- ventanas de entregas ---------- */
+function guardarNombres(){
+  // Guarda los nombres escritos en cada archivo antes de redibujar (al quitar uno, los demás cambian de lugar).
+  if(!S.modal||S.modal.kind!=="subir")return;
+  S.modal.files.forEach(function(f,i){var el=document.getElementById("sb-n-"+i);if(el){f._nombre=el.value;el.defaultValue=el.value}});
+}
+function abrirSubir(files,o){
+  o=o||{};
+  if(!SRV)return toast("Las entregas necesitan el servidor");
+  cargarCfg();
+  var m=S.modal;
+  if(m&&m.kind==="subir"){guardarNombres();m.files=m.entregaId?files.slice(0,1).concat(files.length?[]:m.files):m.files.concat(files)}
+  else{
+    var t=o.tarea?taskById(o.tarea):null,ver=o.entregaId?entById(o.entregaId):null;
+    var c=t?t.acc:(S.view==="entregas"?S.en.cuenta:cuentaActual())||"";
+    var l=t?t.list||"":(S.view==="entregas"&&S.en.lista!=="_"?S.en.lista:(S.view==="list"&&listById(S.listId)?S.listId:""));
+    S.modal={kind:"subir",files:ver?files.slice(0,1):files,cuenta:acc(c)?c:"",lista:listById(l)&&listById(l).acc===c?l:"",tarea:t?t.id:"",entregaId:ver?ver.id:""};
+  }
+  S.pop=null;render();
+  if(o.elegir){var fi=document.getElementById("sb-file");if(fi)fi.click()}
+}
+function subirModal(m){
+  var ver=m.entregaId?entById(m.entregaId):null;
+  var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(ver?"Versión nueva":"Subir entregas")+'</h2><button class="btn" data-act="close">Cerrar</button></div><form id="subirForm" class="panel" style="display:flex;flex-direction:column;gap:12px">';
+  if(ver)h+='<div><b>'+esc(ver.nombre)+'</b><div class="muted small">Se guarda como versión '+((ver.version||0)+1)+'. Las anteriores se conservan y la entrega vuelve a «Pendiente de aprobación».</div></div>';
+  h+='<label class="dropzone" for="sb-file">'+ic("upload")+'<span><b>'+(m.files.length?(ver?"Elegir otro archivo":"Agregar más archivos"):(ver?"Elige o arrastra el archivo":"Elige o arrastra archivos"))+'</b>'+(CFG?' · hasta '+fbytes(CFG.maxBytes)+(ver?"":" cada uno"):"")+'</span><input id="sb-file" type="file" data-f="sbfile" class="sr"'+(ver?"":" multiple")+'></label>';
+  m.files.forEach(function(f,i){
+    var er=revisarArchivo(f);
+    h+='<div class="sbf'+(er?" bad":"")+'">'+(ver||er?"":'<div class="field"><label for="sb-n-'+i+'">Nombre de la entrega</label><input id="sb-n-'+i+'" value="'+esc(f._nombre!=null?f._nombre:sinExt(f.name))+'" maxlength="180"></div>')+'<div class="row" style="justify-content:space-between;gap:8px"><span class="muted small" style="overflow-wrap:anywhere;min-width:0">'+esc(f.name)+' · '+fbytes(f.size)+(er?' · <b style="color:var(--bad)">'+esc(er)+'</b>':"")+'</span><button class="btn small ghost" type="button" data-act="sbquita" data-i="'+i+'">Quitar</button></div></div>';
+  });
+  if(!ver){
+    var c=m.cuenta,Ls=S.lists.filter(function(l){return l.acc===c});
+    var Ts=c?S.tasks.filter(function(t){return t.acc===c&&(!m.lista||t.list===m.lista)&&(!isFinal(t)||t.id===m.tarea)}).sort(byDate):[];
+    h+='<div class="field"><label for="sb-acc">Cuenta</label><select id="sb-acc" data-f="sbacc" required><option value="">Elige la cuenta…</option>'+S.accounts.slice().sort(function(x,y){return String(x.name).localeCompare(String(y.name),"es")}).map(function(a){return '<option value="'+a.id+'"'+(a.id===c?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div>';
+    h+='<div class="two"><div class="field"><label for="sb-list">Lista (carpeta)</label><select id="sb-list" data-f="sblist"'+(c?"":" disabled")+'><option value="">Sin lista</option>'+Ls.map(function(l){return '<option value="'+l.id+'"'+(l.id===m.lista?" selected":"")+'>'+esc(l.name)+'</option>'}).join("")+'</select></div>'+
+      '<div class="field"><label for="sb-task">Tarea relacionada (opcional)</label><select id="sb-task" data-f="sbtask"'+(c?"":" disabled")+'><option value="">Ninguna</option>'+Ts.map(function(t){return '<option value="'+t.id+'"'+(t.id===m.tarea?" selected":"")+'>'+esc(t.title+" · "+fshort(t.date))+'</option>'}).join("")+'</select></div></div>';
+  }
+  h+='<div class="field"><label for="sb-notas">'+(ver?"Qué cambió (opcional)":"Notas (opcional)")+'</label><textarea id="sb-notas" style="min-height:60px" maxlength="2000"></textarea></div>';
+  var ok=m.files.filter(function(f){return !revisarArchivo(f)}).length;
+  return h+'<button class="btn primary" type="submit"'+(ok?"":" disabled")+'>'+(ver?"Subir versión":ok>1?"Subir "+ok+" archivos":"Subir")+'</button></form>';
+}
+function enProp(l,v){return '<div class="prop"><span class="pl">'+l+'</span><span>'+v+'</span></div>'}
+function vistaPrevia(e,v){
+  var u=esc(urlArchivo(e,v.version)),k=tipoEn(v.mime),key=esc(e.id+"|"+v.version);
+  if(!CFG)return '<div class="empty">Cargando…</div>';
+  if(!previa(v.mime))return '<div class="empty">Este tipo de archivo no se puede ver aquí. Descárgalo para abrirlo.</div>';
+  // data-keep: al redibujar la pantalla se conserva el mismo reproductor, así el video no se reinicia.
+  if(k==="video")return '<video class="prev" controls preload="metadata" playsinline src="'+u+'" data-keep="'+key+'"></video>';
+  if(k==="audio")return '<audio class="prev" controls preload="metadata" src="'+u+'" data-keep="'+key+'"></audio>';
+  if(k==="pdf")return '<iframe class="prev pdf" src="'+u+'" title="Vista previa de '+esc(v.archivo)+'" data-keep="'+key+'"></iframe>';
+  return '<img class="prev" src="'+u+'" alt="Vista previa de '+esc(e.nombre)+'">';
+}
+function entregaModal(m){
+  var e=entById(m.id),cerrar='<button class="btn" data-act="close">Cerrar</button>';
+  if(!e)return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Entrega</h2>'+cerrar+'</div><div class="empty">Esta entrega ya no existe.</div>';
+  cargarCfg();
+  var a=acc(e.cuentaId),L=listaDe(e),t=e.tareaId?taskById(e.tareaId):null;
+  var vs=(e.versiones||[]).slice().sort(function(x,y){return y.version-x.version}),v=vs.find(function(x){return x.version===(m.v||e.version)})||vs[0];
+  var h='<div class="row" style="justify-content:space-between;align-items:flex-start"><div class="muted small" style="min-width:0">'+(a?accDot(a)+' '+esc(a.name):"")+(L?' · '+esc(L.name):"")+'</div>'+cerrar+'</div>';
+  h+='<div><h2 style="font-size:24px;overflow-wrap:anywhere">'+esc(e.nombre)+'</h2><div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px">'+enPill(e)+(e.borrada?'<span class="pill risk-atrasada">En la papelera</span>':"")+'<span class="muted small">Versión '+v.version+(vs.length>1?' de '+vs.length:"")+(v.version!==e.version?' · no es la más reciente':"")+'</span></div></div>';
+  h+=vistaPrevia(e,v);
+  h+='<div class="actions"><a class="btn primary" href="'+esc(urlArchivo(e,v.version,true))+'" download>Descargar</a>'+(e.borrada?"":'<button class="btn" data-act="ensubirv" data-id="'+e.id+'">'+ic("upload")+' Subir versión nueva</button>')+(t?'<button class="btn" data-act="open" data-id="'+t.id+'">Ver la tarea</button>':"")+'</div>';
+  var mias=SUB.filter(function(j){return(j.entregaId===e.id||j.datos.entregaId===e.id)&&j.estado!=="listo"});
+  if(mias.length)h+='<div class="panel upl" aria-live="polite">'+mias.map(subRowHtml).join("")+'</div>';
+  h+='<div class="props panel">'+enProp("Archivo",esc(v.archivo))+enProp("Tamaño",fbytes(v.tamano))+enProp("Tipo",tipoNombre(tipoEn(v.mime)))+enProp("Subió",esc(uname(v.subidoPor))+' · '+ftime(v.subidoEn))+(t?enProp("Tarea",esc(t.title)):"")+(v.notas?enProp("Qué cambió",esc(v.notas)):"")+(e.notas?enProp("Notas",'<span style="white-space:pre-line">'+esc(e.notas)+'</span>'):"")+'</div>';
+  if(vs.length>1)h+='<div class="group"><h3>Versiones</h3><div class="list">'+vs.map(function(x){var on=x.version===v.version;return '<div class="item" style="grid-template-columns:1fr auto"><span class="t">Versión '+x.version+(x.version===e.version?' · la más reciente':"")+'</span><span class="actions">'+(on?'<span class="pill st-programada">En pantalla</span>':'<button class="btn small" data-act="enver" data-id="'+e.id+'" data-v="'+x.version+'">Ver</button>')+'<a class="btn small" href="'+esc(urlArchivo(e,x.version,true))+'" download>Descargar</a></span><span class="meta">'+esc(x.archivo)+' · '+fbytes(x.tamano)+' · '+esc(uname(x.subidoPor))+' · '+ftime(x.subidoEn)+(x.notas?' · '+esc(x.notas):"")+'</span></div>'}).join("")+'</div></div>';
+  var hist=S.actividad.filter(function(x){return x.objeto&&x.objeto.id===e.id}).sort(function(x,y){return x.t<y.t?1:-1});
+  if(hist.length)h+='<div class="group"><h3>Actividad</h3><div class="log">'+hist.map(function(x){return '<div><b>'+esc(uname(x.por))+'</b> '+esc(x.verbo)+' «'+esc(x.objeto.titulo)+'»'+(x.detalle?' · '+esc(x.detalle):"")+'<br><span class="muted small">'+ftime(x.t)+'</span></div>'}).join("")+'</div></div>';
+  if(puedeBorrarEn(e))h+=e.borrada?'<div class="actions"><button class="btn" data-act="enrest" data-id="'+e.id+'">Restaurar</button><button class="btn danger" data-act="enpurga" data-id="'+e.id+'">Borrar para siempre</button></div>':'<button class="btn danger" data-act="enborrar" data-id="'+e.id+'" style="align-self:flex-start">'+(S.armed==="enborrar"+e.id?"Toca otra vez para mandarla a la papelera":"Mandar a la papelera")+'</button>';
+  return h;
+}
+function purgarModal(m){
+  var e=entById(m.id),cerrar='<button class="btn" data-act="close">Cancelar</button>';
+  if(!e)return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Borrar para siempre</h2>'+cerrar+'</div><div class="empty">Esta entrega ya no existe.</div>';
+  var n=(e.versiones||[]).length;
+  return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Borrar para siempre</h2>'+cerrar+'</div><form id="purgarForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div><b>'+esc(e.nombre)+'</b><div class="muted small">Se borran del almacenamiento '+n+(n===1?" versión":" versiones")+' ('+fbytes(enTam(e))+'). No se puede deshacer y queda registrado en la actividad.</div></div><div class="field"><label for="pg-c">Escribe BORRAR para confirmar</label><input id="pg-c" autocomplete="off" autocapitalize="characters" spellcheck="false" required></div><button class="btn danger" type="submit" style="align-self:flex-start">Borrar para siempre</button></form>';
+}
+function enAccion(ruta,cuerpo,ok){return api("entregas/"+ruta,cuerpo).then(function(){sincronizar();toast(ok)}).catch(function(e){toast((e&&e.message)||"No se pudo")})}
+
+/* ---------- Ajustes ---------- */
+function vAjustes(){
+  var h='<div class="head"><div><h2>Ajustes</h2><div class="muted">Configuración y uso de la plataforma</div></div></div>';
+  if(!SRV)return h+'<div class="empty">Los ajustes aparecen al usar la plataforma en línea.</div>';
+  cargarCfg();
+  var u=usoBytes(),pct=Math.min(100,u.total/GRATIS_BYTES*100),alto=pct>=80,porCuenta={};
+  S.entregas.forEach(function(e){porCuenta[e.cuentaId]=(porCuenta[e.cuentaId]||0)+enTam(e)});
+  h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Almacenamiento de entregas</h3><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:baseline"><span><b class="tnum" style="font-size:22px;font-family:var(--font-display)">'+fbytes(u.total)+'</b> <span class="muted">de 10 GB gratis</span></span><b class="tnum"'+(alto?' style="color:var(--bad)"':"")+'>'+(u.total&&pct<1?"menos de 1":Math.round(pct))+' %</b></div><span class="bar'+(alto?" alto":"")+'" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(pct)+'" aria-label="Almacenamiento usado"><i style="width:'+pct+'%"></i></span>'+
+    (alto?'<div class="banner" role="alert">Ya va el '+Math.round(pct)+' % del almacenamiento gratis. Lo que pase de 10 GB se cobra cada mes por GB guardado.</div>':"")+
+    '<p class="muted small" style="margin:0">Suma todas las versiones guardadas, también las de la papelera'+(u.papelera?' ('+fbytes(u.papelera)+'; se liberan al borrarlas para siempre)':"")+'. Cloudflare R2 da 10 GB al mes sin costo para toda la cuenta; lo que pase se cobra por GB al mes. Descargar no tiene costo.</p>'+
+    (Object.keys(porCuenta).length?'<div class="list">'+Object.keys(porCuenta).sort(function(x,y){return porCuenta[y]-porCuenta[x]}).map(function(k){var a=acc(k);return '<div class="row" style="justify-content:space-between;gap:8px"><span>'+(a?accDot(a)+' '+esc(a.name):"Cuenta borrada")+'</span><span class="tnum muted">'+fbytes(porCuenta[k])+'</span></div>'}).join("")+'</div>':"")+'</div>';
+  if(CFG)h+='<div class="panel" style="display:flex;flex-direction:column;gap:8px"><h3>Archivos</h3><p class="muted small" style="margin:0">Máximo por archivo: <b>'+fbytes(CFG.maxBytes)+'</b>. Tipos aceptados: '+CFG.extensiones.map(function(x){return "."+x}).join(", ")+'. Se ven dentro de la plataforma: imágenes, video, audio y PDF; lo demás se descarga.</p></div>';
+  return h;
+}
+
 /* ---------- Modales ---------- */
 function modal(){
   var m=S.modal,h='<div class="overlay" data-act="closebg"><div class="drawer" role="dialog" aria-modal="true">';
@@ -1306,6 +1629,9 @@ function modal(){
   else if(m.kind==="kn")h+=knModal(m);
   else if(m.kind==="kcols")h+=kcModal();
   else if(m.kind==="drlink")h+=drLinkModal(m);
+  else if(m.kind==="entrega")h+=entregaModal(m);
+  else if(m.kind==="subir")h+=subirModal(m);
+  else if(m.kind==="purgar")h+=purgarModal(m);
   return h+'</div></div>';
 }
 function taskModal(t){
@@ -1323,6 +1649,7 @@ function taskModal(t){
   h+='<div class="group"><h3>Subtareas <span class="muted small tnum">'+dn+'/'+nS+'</span></h3>'+(nS?'<span class="bar"><i style="width:'+Math.round(dn/nS*100)+'%"></i></span>':"")+t.subs.map(function(s){return '<div class="row subrow"><input type="checkbox" data-act="subtog" data-id="'+t.id+'" data-sid="'+s.id+'"'+(s.done?" checked":"")+' aria-label="Marcar subtarea"><span class="'+(s.done?"done":"")+'" style="flex:1">'+esc(s.title)+'</span>'+(s.assignee?av(s.assignee):"")+(ed?'<button class="btn small ghost" data-act="subdel" data-id="'+t.id+'" data-sid="'+s.id+'" aria-label="Quitar subtarea">Quitar</button>':"")+'</div>'}).join("")+
    (ed?'<form id="subForm" data-id="'+t.id+'" class="row" style="gap:8px;flex-wrap:wrap"><input id="sub-t" placeholder="Nueva subtarea" style="flex:1 1 160px" class="plain" autocomplete="off"><select id="sub-a" aria-label="Responsable"><option value="">Sin responsable</option>'+S.users.map(function(u){return '<option value="'+u.id+'">'+esc(u.name)+'</option>'}).join("")+'</select><button class="btn" type="submit">Agregar</button></form>':"")+'</div>';
   h+='<div class="group"><h3>Archivos de Drive</h3>'+((t.files&&t.files.length)?t.files.map(function(f,j){var u=safeUrl(f.url);return '<div class="row" style="justify-content:space-between"><span>'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(f.title)+'</a>':esc(f.title))+'</span><button class="btn small ghost" data-act="drunlink" data-id="'+t.id+'" data-j="'+j+'">Quitar</button></div>'}).join(""):'<div class="muted small">Sin archivos. Vincúlalos desde la sección Drive.</div>')+'</div>';
+  if(SRV){var tEn=S.entregas.filter(function(z){return z.tareaId===t.id&&!z.borrada}).sort(enOrden);h+='<div class="group"><h3>Entregas <span class="muted small tnum">'+tEn.length+'</span></h3>'+(tEn.length?'<div class="list">'+tEn.map(enRow).join("")+'</div>':'<div class="muted small">Aún no hay archivos entregados para esta tarea.</div>')+'<button class="btn" data-act="ensubir" data-tarea="'+t.id+'" style="align-self:flex-start">'+ic("upload")+' Subir entrega</button></div>'}
   h+='<div class="group"><h3>Actualizaciones</h3>'+(t.com.length?t.com.map(function(c){return '<div class="cm"><b>'+esc((user(c.u)||{name:c.u}).name)+'</b> <span class="muted small">'+ftime(c.t)+'</span><div>'+mentionHtml(c.x)+'</div></div>'}).join(""):'<div class="muted small">Aún no hay actualizaciones.</div>')+'<div class="field"><label for="c-new">Escribe una actualización</label><textarea id="c-new" style="min-height:60px" placeholder="Usa @Nombre para avisar a alguien"></textarea></div><div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn" data-act="comment" data-id="'+t.id+'">Publicar</button><span class="muted small">Mencionar:</span>'+S.users.map(function(u){return '<button class="fchip" data-act="mention" data-n="'+esc(mentionTok(u))+'">@'+esc(u.name)+'</button>'}).join("")+'</div></div>';
   h+='<div class="group"><h3>Actividad</h3><div class="log">'+t.hist.slice().reverse().map(function(x){return '<div><b>'+esc((user(x.u)||{name:x.u}).name)+'</b> · '+ftime(x.t)+'<br>'+esc(x.x)+'</div>'}).join("")+'</div></div>';
   if(isAdmin())h+='<button class="btn danger" data-act="deltask" data-id="'+t.id+'" style="align-self:flex-start">'+(S.armed==="deltask"+t.id?"Toca otra vez para eliminar":"Eliminar tarea")+'</button>';
@@ -1344,7 +1671,7 @@ function renameModal(m){
   return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(m.t==="acc"?"Editar cuenta":"Editar lista")+'</h2><button class="btn" data-act="close">Cerrar</button></div><form id="renameForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="rn-n">'+(m.t==="acc"?"Nombre de la cuenta":"Nombre de la lista")+'</label><input id="rn-n" required maxlength="60" value="'+esc(o.name)+'"></div><button class="btn primary" type="submit" style="align-self:flex-start">Guardar</button></form>';
 }
 function menuModal(){
-  var items=[["cals","Calendarios","check"],["auto","Automatizaciones","bolt"],["pizarra","Pizarra Kanban","note"],["drive","Drive","drive"],["equipo","Equipo","users"],["guia","Guía","book"]];
+  var items=[["cals","Calendarios","check"],["auto","Automatizaciones","bolt"],["pizarra","Pizarra Kanban","note"],["drive","Drive","drive"],["equipo","Equipo","users"],["ajustes","Ajustes","sliders"],["guia","Guía","book"]];
   return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Más</h2><button class="btn" data-act="close">Cerrar</button></div><div class="list">'+items.map(function(i){return '<button class="item menuitem" style="grid-template-columns:1fr auto" data-act="nav" data-v="'+i[0]+'"><span class="row">'+ic(i[2])+'<b>'+i[1]+'</b></span>'+(i[0]==="cals"&&pendCals()?'<span class="cnt">'+pendCals()+'</span>':"")+'</button>'}).join("")+'</div>';
 }
 function newCalModal(){
@@ -1395,7 +1722,7 @@ function tryStatus(t,k){
   var r=t.assignees.length?" · ahora: "+names(t.assignees):"";
   toast("«"+sDef(t).n+"»"+r);
 }
-var ARMABLE={deltask:1,autodel:1,delkn:1,delag:1,reset:1,delref:1};
+var ARMABLE={deltask:1,autodel:1,delkn:1,delag:1,reset:1,delref:1,enborrar:1};
 function arm(k){if(S.armed===k){S.armed=null;return true}S.armed=k;render();return false}
 var STEPS={redes:[["Redactar el texto","community"],["Diseñar la pieza","diseno"],["Aprobación del cliente","admin"],["Programar la publicación","community"]],diseno:[["Entender el brief","admin"],["Primera propuesta","diseno"],["Ajustes y entrega","diseno"]]};
 function act(a,el){
@@ -1507,6 +1834,20 @@ function act(a,el){
   case"drlink":var df=(S.dr.items||[]).find(function(z){return z.id===id});if(!df)return;S.modal={kind:"drlink",file:{id:df.id,title:df.title,url:safeUrl(df.viewUrl)}};return render();
   case"dldo":var dp=taskById(val("dl-task"));if(!dp)return;dp.files=dp.files||[];if(dp.files.some(function(z){return z.id===S.modal.file.id})){S.modal=null;return toast("Ese archivo ya estaba vinculado")}dp.files.push(S.modal.file);logT(dp,"Vinculó el archivo de Drive «"+S.modal.file.title+"»");S.modal=null;save();return toast("Archivo vinculado a la tarea");
   case"drunlink":t.files.splice(+el.getAttribute("data-j"),1);logT(t,"Quitó un archivo de Drive");save();return render();
+  case"ennav":S.view="entregas";S.modal=null;S.pop=null;S.en.papelera=false;if(el.hasAttribute("data-c")){S.en.cuenta=el.getAttribute("data-c");S.en.lista=""}if(el.hasAttribute("data-l"))S.en.lista=el.getAttribute("data-l");S.toTop=true;return render();
+  case"enpap":S.en.papelera=true;S.toTop=true;return render();
+  case"enclear":S.en.q="";S.en.estado="";S.en.persona="";S.en.tipo="";return render();
+  case"ensubir":return abrirSubir([],{tarea:el.getAttribute("data-tarea")||"",elegir:true});
+  case"ensubirv":return abrirSubir([],{entregaId:id,elegir:true});
+  case"sbquita":guardarNombres();S.modal.files.splice(+el.getAttribute("data-i"),1);return render();
+  case"enopen":S.modal={kind:"entrega",id:id};S.pop=null;return render();
+  case"enver":S.modal={kind:"entrega",id:id,v:+el.getAttribute("data-v")};return render();
+  case"enborrar":if(!arm("enborrar"+id))return;return enAccion("borrar",{id:id},"La entrega está en la papelera. Se puede restaurar.");
+  case"enrest":return enAccion("restaurar",{id:id},"Entrega restaurada");
+  case"enpurga":S.modal={kind:"purgar",id:id};return render();
+  case"encancel":var jc=SUB.find(function(z){return z.id===id});if(jc){cancelarSub(jc);toast("Subida cancelada")}return;
+  case"enreint":var jr=SUB.find(function(z){return z.id===id});if(jr&&jr.estado==="error")correrJob(jr);return;
+  case"enlimpiar":SUB.filter(function(z){return z.estado==="error"}).forEach(cancelarSub);SUB=SUB.filter(function(z){return z.estado!=="listo"});return render();
   case"reset":if(SRV)return;if(!arm("reset"))return;var keep=S.session;S=seed();ui();S.session=keep;S.view="equipo";runDue();save();return toast("Datos de este navegador borrados");
   }
 }
@@ -1521,6 +1862,7 @@ document.addEventListener("click",function(e){
 document.addEventListener("input",function(e){
   var f=e.target.getAttribute&&e.target.getAttribute("data-f");
   if(e.target.id==="e-copy"){var cn2=document.getElementById("copy-n");if(cn2)cn2.textContent=e.target.value.length+" caracteres";return}
+  if(f==="enq"){S.en.q=e.target.value;render();return}
   if(f==="qtext"){S.q.text=e.target.value;var pos=e.target.selectionStart;render();var n=document.getElementById("qtext");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(x){}}}
 });
 document.addEventListener("change",function(e){
@@ -1529,6 +1871,13 @@ document.addEventListener("change",function(e){
   if(f==="qwho"){S.q.who=el.value;render()}
   else if(f==="qgroup"){S.q.group=el.value;render()}
   else if(f==="kbAcc"){S.kf.acc=el.value;render()}
+  else if(f==="enestado"){S.en.estado=el.value;render()}
+  else if(f==="enpersona"){S.en.persona=el.value;render()}
+  else if(f==="entipo"){S.en.tipo=el.value;render()}
+  else if(f==="sbfile"){guardarNombres();abrirSubir([].slice.call(el.files||[]))}
+  else if(f==="sbacc"){guardarNombres();S.modal.cuenta=el.value;S.modal.lista="";S.modal.tarea="";render()}
+  else if(f==="sblist"){guardarNombres();S.modal.lista=el.value;var tl=taskById(S.modal.tarea);if(tl&&el.value&&tl.list!==el.value)S.modal.tarea="";render()}
+  else if(f==="sbtask"){guardarNombres();S.modal.tarea=el.value;var tk=taskById(el.value);if(tk&&tk.list)S.modal.lista=tk.list;render()}
   else if(f==="pubAcc"){S.pubAcc=el.value;render()}
   else if(f==="tdate"){
     if(!canEdit(t)){deny();return render()}
@@ -1584,6 +1933,20 @@ function handleSubmit(form){
     var rec={kind:val("ag-kind"),title:val("ag-title").trim(),date:val("ag-date"),time:val("ag-time"),owner:u0.role==="admin"?val("ag-owner"):(ex?ex.owner:u0.id),acc:val("ag-acc"),notes:val("ag-notes")};
     if(ex){Object.keys(rec).forEach(function(q){ex[q]=rec[q]})}else{rec.id="a"+nid();rec.done=false;S.agenda.push(rec)}
     S.agDay=rec.date;S.agMonth=rec.date.slice(0,7);S.modal=null;save();toast(ex?"Cambios guardados":"Agregado a la agenda");
+  }else if(id==="subirForm"){
+    var sm=S.modal;guardarNombres();
+    var buenos=sm.files.filter(function(f){return !revisarArchivo(f)}),malos=sm.files.length-buenos.length;
+    if(!buenos.length)return toast("Elige al menos un archivo que se pueda subir");
+    if(!sm.entregaId&&!acc(sm.cuenta))return toast("Elige la cuenta");
+    var snotas=val("sb-notas").trim();
+    buenos.forEach(function(f){encolar(f,{nombre:sm.entregaId?"":String(f._nombre!=null?f._nombre:sinExt(f.name)).trim(),cuentaId:sm.cuenta,listaId:sm.lista,tareaId:sm.tarea,notas:snotas,entregaId:sm.entregaId})});
+    if(sm.entregaId)S.modal={kind:"entrega",id:sm.entregaId};
+    else{S.modal=null;S.view="entregas";S.en.cuenta=sm.cuenta;S.en.lista=sm.lista||"";S.en.papelera=false;S.toTop=true}
+    render();if(malos)toast("Se omitieron "+malos+(malos===1?" archivo que no se puede subir":" archivos que no se pueden subir"));
+  }else if(id==="purgarForm"){
+    if(val("pg-c").trim()!=="BORRAR")return toast("Escribe BORRAR para confirmar");
+    var pid=S.modal.id;
+    api("entregas/purgar",{id:pid,confirmar:"BORRAR"}).then(function(){S.modal=null;sincronizar();toast("Archivo borrado para siempre")}).catch(function(x){toast((x&&x.message)||"No se pudo borrar")});
   }else if(id==="drForm"){
     S.dr.q=val("dr-q").trim();S.dr.items=null;S.dr.token="";driveLoad();
   }else if(id==="knForm"){
@@ -1683,6 +2046,17 @@ document.addEventListener("click",function(e){
 },true);
 function isAdminNotify(t){S.users.filter(function(u){return u.role==="admin"&&u.id!==S.session}).forEach(function(u){notify(u.id,"Nueva solicitud: «"+t.title+"»",t.id)})}
 
+/* ---------- arrastrar archivos desde la computadora: abren «Subir entregas» ---------- */
+function traeArchivos(e){var t=e.dataTransfer&&e.dataTransfer.types;return !!(t&&[].indexOf.call(t,"Files")>-1&&SRV&&S&&S.session)}
+document.addEventListener("dragover",function(e){if(!traeArchivos(e))return;e.preventDefault();e.dataTransfer.dropEffect="copy";document.body.classList.add("arrastrando")});
+document.addEventListener("dragleave",function(e){if(!e.relatedTarget)document.body.classList.remove("arrastrando")});
+document.addEventListener("drop",function(e){
+  document.body.classList.remove("arrastrando");
+  if(!traeArchivos(e))return;e.preventDefault();
+  var fs=[].slice.call(e.dataTransfer.files||[]);if(!fs.length)return;
+  var tm=S.modal&&S.modal.kind==="task"?S.modal.id:"",em=S.modal&&S.modal.kind==="entrega"?S.modal.id:"";
+  abrirSubir(fs,{tarea:tm,entregaId:em});
+});
 /* ---------- arrastrar y soltar (notas y tarjetas) ---------- */
 var dragId=null,dragTask=null;
 document.addEventListener("dragstart",function(e){
@@ -1721,7 +2095,7 @@ window.addEventListener("storage",function(e){
    Si existe /api (Cloudflare Pages Functions + D1), la pantalla sincroniza con el servidor: cada elemento (tarea,
    comentario de aviso, nota…) es una fila, y solo se mandan los elementos que cambiaron. Si no existe (archivo suelto,
    artifact), todo sigue en localStorage como antes. Ver DISENO-FASE-1.md. */
-var BASEO={},BASEJ={},CREADO={},ORDEN={},enCurso=false,pendiente=false,fallos=0,TIPOS_ARR={user:"users",account:"accounts",list:"lists",task:"tasks",cal:"cals",ag:"agenda",auto:"autos",inbox:"inbox"};
+var BASEO={},BASEJ={},CREADO={},ORDEN={},enCurso=false,pendiente=false,fallos=0,TIPOS_ARR={user:"users",account:"accounts",list:"lists",task:"tasks",cal:"cals",ag:"agenda",auto:"autos",inbox:"inbox",entrega:"entregas",actividad:"actividad"};
 
 /* ids únicos aunque dos personas creen algo al mismo tiempo (antes era un contador compartido) */
 function nid(){return SRV?Date.now().toString(36)+Math.random().toString(36).slice(2,7):++S.seq}
@@ -1745,7 +2119,7 @@ function aplanar(){
   var m={};
   function p(tipo,id,datos){m[tipo+"|"+id]={tipo:tipo,id:String(id),datos:datos}}
   S.users.forEach(function(u){var d=cl(u);delete d.pass;p("user",u.id,d)});
-  [["account","accounts"],["list","lists"],["task","tasks"],["cal","cals"],["ag","agenda"],["auto","autos"],["inbox","inbox"]].forEach(function(t){S[t[1]].forEach(function(x){p(t[0],x.id,x)})});
+  [["account","accounts"],["list","lists"],["task","tasks"],["cal","cals"],["ag","agenda"],["auto","autos"],["inbox","inbox"],["entrega","entregas"],["actividad","actividad"]].forEach(function(t){S[t[1]].forEach(function(x){p(t[0],x.id,x)})});
   S.kanban.notes.forEach(function(n,i){var d=cl(n);d.o=i;p("note",n.id,d)});
   p("cols","main",{cols:S.kanban.cols});
   Object.keys(S.stat).forEach(function(k){p("stat",k,{v:S.stat[k]})});
@@ -1809,7 +2183,7 @@ function aplicar(e,instantanea,enviados){
 }
 
 function construir(entidades){
-  S={users:[],accounts:[],lists:[],tasks:[],cals:[],agenda:[],kanban:{cols:[],notes:[]},autos:[],stat:cl(STAT0),inbox:[],seen:{},prefs:{},boards:{},seq:0,session:null};
+  S={users:[],accounts:[],lists:[],tasks:[],cals:[],agenda:[],kanban:{cols:[],notes:[]},autos:[],stat:cl(STAT0),inbox:[],seen:{},prefs:{},boards:{},entregas:[],actividad:[],seq:0,session:null};
   BASEO={};BASEJ={};CREADO={};ORDEN={};
   entidades.forEach(function(e){aplicar(e)});
   ordenar();ui();
@@ -1881,7 +2255,7 @@ function iniciar(){
   fetch("/api/yo",{headers:{"content-type":"application/json"},cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("sin servidor");return r.json()}).then(function(y){
     if(!y||typeof y.dev!=="boolean")throw new Error("no es el servidor");
     SRV={dev:y.dev,yo:y.yo||null,aviso:y.aviso||null,cursor:0};
-    return cargarDelServidor().then(function(){if(S.session)runDue();render()});
+    return cargarDelServidor().then(function(){cargarCfg();if(S.session)runDue();render()});
   }).catch(function(e){if(SRV){if(app)app.textContent="No se pudo entrar: "+(e&&e.message||"error del servidor");return}local()});
 }
 /* Mezcla de cambios de tres vías. La usan el servidor (functions/_merge3.js, generado) y la pantalla (08-servidor).

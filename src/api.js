@@ -1,13 +1,17 @@
-// Rutas /api del Centro Eureka Hub (F1): yo, bootstrap, seed (solo desarrollo) y sync.
+// Rutas /api del Centro Eureka Hub: yo, bootstrap, seed (solo desarrollo), sync (F1) y entregas/* (F2, en entregas.js).
 // Cada elemento de la pantalla es una fila de `entidades`; los cambios se mezclan con merge3 para que
 // dos personas editando lo mismo no se pisen. Los permisos se revisan AQUÍ, no solo en la pantalla.
 import { merge3, sj } from './merge3.js';
 import { verificarAccess } from './access.js';
 import { correosDelEquipo, sincronizarPoliticaAccess } from './access-politica.js';
+import { aEntidad, escribir } from './entidades.js';
+import { manejarEntregas } from './entregas.js';
 
-export const TIPOS = new Set(['user', 'account', 'list', 'task', 'cal', 'ag', 'auto', 'inbox', 'note', 'cols', 'stat', 'seen', 'pref', 'board']);
+export const TIPOS = new Set(['user', 'account', 'list', 'task', 'cal', 'ag', 'auto', 'inbox', 'note', 'cols', 'stat', 'seen', 'pref', 'board', 'entrega', 'actividad']);
 // Solo el rol admin escribe estos tipos (sección 5 del prompt).
 export const SOLO_ADMIN = new Set(['user', 'auto', 'stat', 'cols']);
+// Estos los escribe solo el servidor (rutas /api/entregas/*), que estampa autor y hora; por sync se rechazan.
+export const SOLO_SERVIDOR = new Set(['entrega', 'actividad']);
 
 const MAX_CAMBIOS = 300;
 const MAX_ENTIDAD = 1_500_000; // caracteres de JSON por elemento; el cliente ya rechaza `board` de más de ~1.4 M
@@ -40,7 +44,8 @@ async function usuarios(env) {
 // ---------- identidad ----------
 async function quien(request, env) {
 	if (esModoDev(request, env)) {
-		const id = request.headers.get('X-Dev-User');
+		// En desarrollo, <video> e <img> no pueden mandar encabezados: se acepta también ?devUser= (solo aquí).
+		const id = request.headers.get('X-Dev-User') || new URL(request.url).searchParams.get('devUser');
 		const u = id ? (await usuarios(env)).find((x) => x.id === id) : null;
 		return { dev: true, usuario: u || null, email: null, motivo: u ? null : 'Elige un usuario' };
 	}
@@ -64,10 +69,6 @@ async function cambiosDesde(env, desde) {
 	return { entidades, cursor, mas };
 }
 
-const aEntidad = (f) => ({
-	tipo: f.tipo, id: f.id, datos: f.borrado ? null : JSON.parse(f.datos), version: f.version, seq: f.seq, creado: f.creado, borrado: !!f.borrado,
-});
-
 async function hayDatos(env) {
 	const m = await env.DB.prepare("SELECT 1 AS x FROM meta WHERE clave = 'semillado'").first();
 	if (m) return true;
@@ -75,25 +76,6 @@ async function hayDatos(env) {
 }
 
 // ---------- escritura ----------
-async function escribir(env, c, cur, datosTexto, borrado, por) {
-	const ahora = new Date().toISOString();
-	const incremento = env.DB.prepare('UPDATE contador SET seq = seq + 1 WHERE id = 1');
-	let sentencia;
-	if (!cur) {
-		sentencia = env.DB.prepare(
-			'INSERT INTO entidades (tipo, id, datos, version, seq, creado, actualizado, borrado, por) ' +
-			'SELECT ?1, ?2, ?3, 1, seq, seq, ?4, 0, ?5 FROM contador WHERE id = 1 ON CONFLICT (tipo, id) DO NOTHING',
-		).bind(c.tipo, c.id, datosTexto, ahora, por);
-	} else {
-		sentencia = env.DB.prepare(
-			'UPDATE entidades SET datos = ?3, version = version + 1, seq = (SELECT seq FROM contador WHERE id = 1), borrado = ?4, actualizado = ?5, por = ?6 ' +
-			'WHERE tipo = ?1 AND id = ?2 AND version = ?7',
-		).bind(c.tipo, c.id, datosTexto, borrado ? 1 : 0, ahora, por, cur.version);
-	}
-	const res = await env.DB.batch([incremento, sentencia]);
-	return res[1].meta.changes === 1;
-}
-
 async function aplicarCambio(env, c, por) {
 	for (let intento = 0; intento < 5; intento++) {
 		const cur = await env.DB.prepare('SELECT datos, version, borrado FROM entidades WHERE tipo = ?1 AND id = ?2').bind(c.tipo, c.id).first();
@@ -124,6 +106,7 @@ function validarCambio(c) {
 
 // Permisos por cambio. Devuelve null si se permite, o el motivo del rechazo.
 export function permiso(usuario, c) {
+	if (SOLO_SERVIDOR.has(c.tipo)) return 'Esto lo registra solo el servidor';
 	if (SOLO_ADMIN.has(c.tipo) && usuario.role !== 'admin') return 'Solo Dirección puede cambiar esto';
 	return null;
 }
@@ -201,6 +184,11 @@ export async function manejarApi(request, env) {
 				if (!entidades.some((e) => e.tipo === r.tipo && e.id === r.id)) entidades.push(await estadoActual(env, r.tipo, r.id));
 			}
 			return resp({ entidades, cursor, mas, ...(rechazados.length ? { rechazados } : {}), ...(aviso ? { aviso } : {}) });
+		}
+
+		if (ruta.startsWith('entregas/')) {
+			if (!q.usuario) return error(401, q.motivo || 'No autenticado');
+			return await manejarEntregas(request, env, ruta.slice('entregas/'.length), q.usuario);
 		}
 
 		return error(404, 'Ruta no encontrada');
