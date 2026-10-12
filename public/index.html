@@ -368,6 +368,12 @@ input.plain{border:1px solid var(--line);border-radius:8px;padding:8px 10px;back
 .mref figcaption .btn{margin-left:auto}
 .mlink{display:flex;flex-direction:column;gap:2px;padding:12px;font-weight:600;color:var(--accent);overflow-wrap:anywhere;text-decoration:none}
 .mlink:hover{text-decoration:underline}
+/* confirmaciones y tema */
+.btn .seguro{white-space:normal;text-align:left;font-weight:600;line-height:1.35;display:block}
+.tema-rapido{display:flex;gap:4px}
+.tema-rapido .btn{flex:1;justify-content:center;padding:6px 0;min-height:32px;border:1px solid var(--line)}
+.tema-rapido .btn.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+@media (max-width:820px){.tema-rapido{display:none}}
 /* contactos */
 .item.ctrow{grid-template-columns:minmax(0,1fr) auto;align-items:center}
 .ctrow .t{justify-content:flex-start;text-align:left;padding:0;min-height:0;font-weight:600;border:0;overflow-wrap:anywhere}
@@ -440,6 +446,9 @@ var ICONS={
  chev:'<path d="M9 6l6 6-6 6"/>',
  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
+ sol:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+ luna:'<path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>',
+ pantalla:'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
  contact:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17c.6-1.8 2-2.7 3.5-2.7s2.9.9 3.5 2.7M15 9h4M15 13h3"/>',
  pulse:'<path d="M3 12h4l3 8 4-16 3 8h4"/>',
  upload:'<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/>',
@@ -743,7 +752,7 @@ function shell(){
   '<div class="navlbl">Espacios</div>'+navBtn("spaces","Cuentas","folder")+tree()+navBtn("contactos","Contactos","contact")+
   '<div class="navlbl">Herramientas</div>'+navBtn("cals","Calendarios","check",pendCals()||"","sec")+navBtn("auto","Automatizaciones","bolt",0,"sec")+navBtn("pizarra","Pizarra Kanban","note",0,"sec")+navBtn("drive","Drive","drive",0,"sec")+navBtn("equipo","Equipo","users",0,"sec")+navBtn("ajustes","Ajustes","sliders",0,"sec")+navBtn("guia","Guía","book",0,"sec")+
   '<button data-act="menu" class="moreNav'+(SEC.indexOf(S.view)>-1?" on":"")+'"><span class="row" style="gap:8px">'+ic("grid")+'<span>Más</span></span></button>'+
-  '</nav><div class="me"><div class="row"><span class="avatar" style="background:'+avColor(u)+';color:#fff">'+esc(u.name[0])+'</span><span class="who"><b>'+esc(u.name)+'</b><div class="muted small">'+esc(rolNombre(u.role))+'</div></span></div><button class="btn small" data-act="logout">Salir</button></div></aside><main>';
+  '</nav><div class="me"><div class="row"><span class="avatar" style="background:'+avColor(u)+';color:#fff">'+esc(u.name[0])+'</span><span class="who"><b>'+esc(u.name)+'</b><div class="muted small">'+esc(rolNombre(u.role))+'</div></span></div>'+temaRapido()+'<button class="btn small" data-act="logout">Salir</button></div></aside><main>';
   var al=alerts();
   if(subActivas().length&&S.view!=="entregas")h+='<button class="banner upbar" id="subglobal" data-act="ennav">'+esc(subResumen())+'</button>';
   if(al&&S.view!=="panel")h+='<button class="banner alertbar" data-act="alertas">'+al+' tarea'+(al>1?"s":"")+' atrasada'+(al>1?"s":"")+' o en riesgo · Ver</button>';
@@ -1054,7 +1063,7 @@ function agModal(m){
   '<div class="two"><div class="field"><label for="ag-date">Fecha</label><input id="ag-date" type="date" required value="'+d+'"'+dis+'></div><div class="field"><label for="ag-time">Hora (opcional)</label><input id="ag-time" type="time" value="'+esc(x?x.time:"")+'"'+dis+'></div></div>'+
   '<div class="field"><label for="ag-acc">Cuenta (opcional)</label><select id="ag-acc"'+dis+'><option value="">Sin cuenta</option>'+S.accounts.map(function(a){return '<option value="'+a.id+'"'+(x&&x.acc===a.id?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div>'+
   '<div class="field"><label for="ag-notes">Notas</label><textarea id="ag-notes" style="min-height:70px"'+dis+'>'+esc(x?x.notes:"")+'</textarea></div>'+
-  (can?'<div class="actions"><button class="btn primary" type="submit">Guardar</button>'+(x?'<button class="btn danger" type="button" data-act="delag" data-id="'+x.id+'">'+(S.armed==="delag"+x.id?"Toca otra vez para eliminar":"Eliminar")+'</button>':"")+'</div>':'<div class="muted small">Solo el responsable o Dirección pueden editar esto.</div>')+'</form>';
+  (can?'<div class="actions"><button class="btn primary" type="submit">Guardar</button>'+(x?'<button class="btn danger" type="button" data-act="delag" data-id="'+x.id+'">'+(S.armed==="delag"+x.id?seguro("eliminar esta actividad"):"Eliminar")+'</button>':"")+'</div>':'<div class="muted small">Solo el responsable o Dirección pueden editar esto.</div>')+'</form>';
 }
 var KC={blue:"Azul",purple:"Morado",red:"Rojo",orange:"Naranja",green:"Verde"};
 var TONE={pro:["--s-pro-bg","--s-pro"],cli:["--s-cli-bg","--s-cli"],red:["--s-red-bg","--s-red"],pub:["--s-pub-bg","--s-pub"]};
@@ -1094,7 +1103,7 @@ function knModal(m){
   '<div class="field"><label for="kn-date">Fecha (opcional)</label><input id="kn-date" type="date" value="'+(x?x.date:"")+'"></div>'+
   '<div class="field"><label for="kn-notes">Notas</label><textarea id="kn-notes" style="min-height:70px">'+esc(x?x.notes:"")+'</textarea></div>'+
   '<label class="chk" for="kn-flag"><input type="checkbox" id="kn-flag"'+(x&&x.flag?" checked":"")+'> Marcar con alerta de atención</label>'+
-  '<div class="actions"><button class="btn primary" type="submit">Guardar</button>'+(x&&can?'<button class="btn danger" type="button" data-act="delkn" data-id="'+x.id+'">'+(S.armed==="delkn"+x.id?"Toca otra vez para eliminar":"Eliminar")+'</button>':"")+'</div></form>'+(x?'<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3 style="font-size:16px">Convertir en tarea</h3><p class="muted small" style="margin:0">Crea una tarea en una lista de cuenta con el título, la fecha, el responsable y las notas de esta nota, y la quita de la pizarra.</p><div class="field"><label for="kn-list">Lista destino</label><select id="kn-list">'+S.lists.map(function(l){return '<option value="'+l.id+'"'+(x.acc===l.acc?" selected":"")+'>'+esc(shortName(acc(l.acc).name)+" · "+l.name)+'</option>'}).join("")+'</select></div><button class="btn" data-act="kn2task" data-id="'+x.id+'" style="align-self:flex-start">Convertir en tarea</button></div>':"");
+  '<div class="actions"><button class="btn primary" type="submit">Guardar</button>'+(x&&can?'<button class="btn danger" type="button" data-act="delkn" data-id="'+x.id+'">'+(S.armed==="delkn"+x.id?seguro("eliminar esta nota"):"Eliminar")+'</button>':"")+'</div></form>'+(x?'<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3 style="font-size:16px">Convertir en tarea</h3><p class="muted small" style="margin:0">Crea una tarea en una lista de cuenta con el título, la fecha, el responsable y las notas de esta nota, y la quita de la pizarra.</p><div class="field"><label for="kn-list">Lista destino</label><select id="kn-list">'+S.lists.map(function(l){return '<option value="'+l.id+'"'+(x.acc===l.acc?" selected":"")+'>'+esc(shortName(acc(l.acc).name)+" · "+l.name)+'</option>'}).join("")+'</select></div><button class="btn" data-act="kn2task" data-id="'+x.id+'" style="align-self:flex-start">Convertir en tarea</button></div>':"");
 }
 function kcModal(){
   return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Ajustar columnas</h2><button class="btn" data-act="close">Cerrar</button></div><form id="kcForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><p class="muted small" style="margin:0">El límite es el máximo de notas recomendado en la columna. Déjalo en 0 si no quieres límite.</p>'+
@@ -1204,7 +1213,7 @@ function vAuto(){
   ["redes","diseno"].forEach(function(ty){
     var as=S.autos.filter(function(a){return a.type===ty});
     h+='<div class="group"><h3>'+TYPES[ty]+' <span class="muted small">'+as.filter(function(a){return a.on}).length+' activas</span></h3><div class="list">'+(as.length?as.map(function(a){
-      return '<div class="item auto'+(a.on?"":" off")+'" style="grid-template-columns:auto 1fr auto"><label class="sw"><input type="checkbox" data-act="autotog" data-id="'+a.id+'"'+(a.on?" checked":"")+(adm?"":" disabled")+' aria-label="Activar o pausar"><span></span></label><span>'+ic("bolt")+' '+autoText(a)+'</span>'+(adm?'<button class="btn small ghost danger" data-act="autodel" data-id="'+a.id+'">'+(S.armed==="autodel"+a.id?"¿Seguro? Toca otra vez":"Quitar")+'</button>':"<span></span>")+'</div>'}).join(""):'<div class="empty small">Sin automatizaciones.</div>')+'</div></div>';
+      return '<div class="item auto'+(a.on?"":" off")+'" style="grid-template-columns:auto 1fr auto"><label class="sw"><input type="checkbox" data-act="autotog" data-id="'+a.id+'"'+(a.on?" checked":"")+(adm?"":" disabled")+' aria-label="Activar o pausar"><span></span></label><span>'+ic("bolt")+' '+autoText(a)+'</span>'+(adm?'<button class="btn small ghost danger" data-act="autodel" data-id="'+a.id+'">'+(S.armed==="autodel"+a.id?seguro("eliminar esta automatización"):"Quitar")+'</button>':"<span></span>")+'</div>'}).join(""):'<div class="empty small">Sin automatizaciones.</div>')+'</div></div>';
   });
   if(adm){
     var stOpts=S.stat[b.type].map(function(s){return '<option value="'+s.k+'"'+(b.tv===s.k?" selected":"")+'>'+esc(s.n)+'</option>'}).join("");
@@ -1232,7 +1241,7 @@ function vEquipo(){
   if(adm){
     h+='<form class="panel" id="addUser" style="display:flex;flex-direction:column;gap:12px"><h3>Agregar persona</h3><p class="muted small" style="margin:0">Al crearla queda en el equipo de las cuentas que elijas, y las automatizaciones le asignan lo que corresponda a su rol.</p><div class="two"><div class="field"><label for="nu-n">Nombre</label><input id="nu-n" required></div><div class="field"><label for="nu-u">Usuario</label><input id="nu-u" required autocapitalize="none"></div></div><div class="two"><div class="field"><label for="nu-r">Rol</label><select id="nu-r"><option value="">Por definir</option>'+Object.keys(ROLES).map(function(k){return '<option value="'+k+'">'+ROLES[k]+'</option>'}).join("")+'</select></div>'+(SRV?'<div class="field"><label for="nu-e">Correo con el que entra</label><input id="nu-e" type="email" required autocapitalize="none" spellcheck="false"></div>':'<div class="field"><label for="nu-p">Contraseña temporal</label><input id="nu-p" required minlength="6"></div>')+'</div>'+(SRV?'<p class="muted small" style="margin:0">El mismo correo debe estar en la política de Cloudflare Access; si no, la persona no podrá entrar.</p>':"")+'<div class="field"><label>Cuentas a las que se suma</label><div class="row" style="flex-wrap:wrap;gap:12px">'+S.accounts.map(function(a){return '<label class="chk small"><input type="checkbox" name="nu-acc" value="'+a.id+'"> '+esc(shortName(a.name))+'</label>'}).join("")+'</div></div><div class="err" id="nuerr"></div><button class="btn primary" type="submit" style="align-self:flex-start">Agregar</button></form>';
   }else h+='<div class="banner">Solo Dirección puede agregar personas.</div>';
-  if(!SRV)h+='<div class="panel"><b>Borrar los datos de este navegador</b><p class="muted small" style="margin:6px 0 10px">Borra cuentas, listas, tareas, calendarios y contraseñas guardados en este navegador y lo deja como nuevo. No se puede deshacer.</p><button class="btn danger" data-act="reset">'+(S.armed==="reset"?"Esto borra todo. Toca otra vez para confirmar":"Borrar todo")+'</button></div>';
+  if(!SRV)h+='<div class="panel"><b>Borrar los datos de este navegador</b><p class="muted small" style="margin:6px 0 10px">Borra cuentas, listas, tareas, calendarios y contraseñas guardados en este navegador y lo deja como nuevo. No se puede deshacer.</p><button class="btn danger" data-act="reset">'+(S.armed==="reset"?seguro("borrar todos los datos de este navegador"):"Borrar todo")+'</button></div>';
   return h;
 }
 function vGuia(){
@@ -1308,7 +1317,7 @@ function okHex(x){return /^#[0-9a-fA-F]{6}$/.test(x||"")}
 function okImg(x){return /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(x||"")}
 function okLink(x){return /^https?:\/\/[^\s"'<>]+$/i.test(x||"")}
 function host(u){try{return new URL(u).hostname.replace(/^www\./,"")}catch(e){return""}}
-function delRefBtn(a,g,z){return(isAdmin()||z.by===S.session)?'<button class="btn small ghost" data-act="delref" data-acc="'+a.id+'" data-g="'+g+'" data-id="'+z.id+'">'+(S.armed==="delref"+z.id?"¿Quitar? Toca otra vez":"Quitar")+'</button>':""}
+function delRefBtn(a,g,z){return(isAdmin()||z.by===S.session)?'<button class="btn small ghost" data-act="delref" data-acc="'+a.id+'" data-g="'+g+'" data-id="'+z.id+'">'+(S.armed==="delref"+z.id?seguro("quitar esta referencia del tablero"):"Quitar")+'</button>':""}
 function brandBoard(a){
   var B=board(a.id);
   var h='<div class="group"><h3>Tablero de marca</h3><p class="muted small" style="margin:0">Referencias visuales para quien diseña y redacta: colores, tipografías, imágenes, enlaces y notas de la marca.</p><div class="panel marca">';
@@ -1613,7 +1622,7 @@ function entregaModal(m){
   if(vs.length>1)h+='<div class="group"><h3>Versiones</h3><div class="list">'+vs.map(function(x){var on=x.version===v.version;return '<div class="item" style="grid-template-columns:1fr auto"><span class="t">Versión '+x.version+(x.version===e.version?' · la más reciente':"")+'</span><span class="actions">'+(on?'<span class="pill st-programada">En pantalla</span>':'<button class="btn small" data-act="enver" data-id="'+e.id+'" data-v="'+x.version+'">Ver</button>')+'<a class="btn small" href="'+esc(urlArchivo(e,x.version,true))+'" download>Descargar</a></span><span class="meta">'+esc(x.archivo)+' · '+fbytes(x.tamano)+' · '+esc(uname(x.subidoPor))+' · '+ftime(x.subidoEn)+(x.notas?' · '+esc(x.notas):"")+'</span></div>'}).join("")+'</div></div>';
   var hist=S.actividad.filter(function(x){return x.objeto&&x.objeto.id===e.id}).sort(function(x,y){return x.t<y.t?1:-1});
   if(hist.length)h+='<div class="group"><h3>Actividad</h3><div class="log">'+hist.map(function(x){return '<div><b>'+esc(uname(x.por))+'</b> '+esc(x.verbo)+' «'+esc(x.objeto.titulo)+'»'+(x.detalle?' · '+esc(x.detalle):"")+'<br><span class="muted small">'+ftime(x.t)+'</span></div>'}).join("")+'</div></div>';
-  if(puedeBorrarEn(e))h+=e.borrada?'<div class="actions"><button class="btn" data-act="enrest" data-id="'+e.id+'">Restaurar</button><button class="btn danger" data-act="enpurga" data-id="'+e.id+'">Borrar para siempre</button></div>':'<button class="btn danger" data-act="enborrar" data-id="'+e.id+'" style="align-self:flex-start">'+(S.armed==="enborrar"+e.id?"Toca otra vez para mandarla a la papelera":"Mandar a la papelera")+'</button>';
+  if(puedeBorrarEn(e))h+=e.borrada?'<div class="actions"><button class="btn" data-act="enrest" data-id="'+e.id+'">Restaurar</button><button class="btn danger" data-act="enpurga" data-id="'+e.id+'">Borrar para siempre</button></div>':'<button class="btn danger" data-act="enborrar" data-id="'+e.id+'" style="align-self:flex-start">'+(S.armed==="enborrar"+e.id?seguro("mandar esta entrega a la papelera",false):"Mandar a la papelera")+'</button>';
   return h;
 }
 function purgarModal(m){
@@ -1814,6 +1823,11 @@ function aplicarTema(t){
   if(t==="light"||t==="dark")r.setAttribute("data-theme",t);else r.removeAttribute("data-theme");
   try{localStorage.setItem(KEY+"-tema",t||"")}catch(e){} // para pintar el tema correcto antes de cargar
 }
+function temaRapido(){
+  var t=temaActual(),op=[["light","sol","Tema claro"],["dark","luna","Tema oscuro"],["","pantalla","Como el sistema"]];
+  return '<div class="tema-rapido" role="group" aria-label="Tema de la pantalla">'+op.map(function(o){return '<button class="btn small ghost'+(t===o[0]?" on":"")+'" data-act="tema" data-v="'+o[0]+'" aria-pressed="'+(t===o[0])+'" title="'+o[2]+'" aria-label="'+o[2]+'">'+ic(o[1])+'</button>'}).join("")+'</div>';
+}
+function ponerTema(v){S.prefs[S.session]=S.prefs[S.session]||{};S.prefs[S.session].tema=v;aplicarTema(v);save();render()}
 function temaPanel(){
   var t=temaActual();
   return '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Apariencia</h3><fieldset class="opts"><legend class="small muted">Tema de la pantalla (solo para ti)</legend>'+TEMAS.map(function(x){return '<label class="chk small"><input type="radio" name="tema" value="'+x[0]+'" data-f="tema"'+(t===x[0]?" checked":"")+'> '+x[1]+(x[0]===""?' <span class="muted">(cambia solo con el modo claro u oscuro de tu computadora o teléfono)</span>':"")+'</label>'}).join("")+'</fieldset></div>';
@@ -1870,7 +1884,7 @@ function ctModal(m){
   h+='<div class="two"><div class="field"><label for="ct-mail">Correo</label><input id="ct-mail" type="email" maxlength="200" value="'+esc(d.correo||"")+'" autocapitalize="none" spellcheck="false"></div><div class="field"><label for="ct-tel">Teléfono</label><input id="ct-tel" type="tel" maxlength="60" value="'+esc(d.telefono||"")+'" placeholder="33 1234 5678"></div></div>';
   h+='<div class="field"><label for="ct-notas">Notas</label><textarea id="ct-notas" maxlength="4000" placeholder="Horario, cómo prefiere que le contacten, a quién copiar…">'+esc(d.notas||"")+'</textarea></div>';
   h+='<div class="err" id="cterr" role="alert"></div><button class="btn primary" type="submit" style="align-self:flex-start">'+(k?"Guardar cambios":"Agregar contacto")+'</button></form>';
-  if(k)h+='<div class="muted small">Lo agregó '+esc(uname(k.creadoPor))+(k.creadoEn?' el '+ftime(k.creadoEn):"")+'.</div>'+(puedeBorrarCt(k)?'<button class="btn danger" data-act="ctborrar" data-id="'+k.id+'" style="align-self:flex-start">'+(S.armed==="ctborrar"+k.id?"Toca otra vez para borrar el contacto":"Borrar contacto")+'</button>':"");
+  if(k)h+='<div class="muted small">Lo agregó '+esc(uname(k.creadoPor))+(k.creadoEn?' el '+ftime(k.creadoEn):"")+'.</div>'+(puedeBorrarCt(k)?'<button class="btn danger" data-act="ctborrar" data-id="'+k.id+'" style="align-self:flex-start">'+(S.armed==="ctborrar"+k.id?seguro("eliminar este contacto"):"Borrar contacto")+'</button>':"");
   return h;
 }
 function guardarCt(){
@@ -2029,7 +2043,7 @@ function taskModal(t){
   if(SRV){var tEn=S.entregas.filter(function(z){return z.tareaId===t.id&&!z.borrada}).sort(enOrden);h+='<div class="group"><h3>Entregas <span class="muted small tnum">'+tEn.length+'</span></h3>'+(tEn.length?'<div class="list">'+tEn.map(enRow).join("")+'</div>':'<div class="muted small">Aún no hay archivos entregados para esta tarea.</div>')+'<button class="btn" data-act="ensubir" data-tarea="'+t.id+'" style="align-self:flex-start">'+ic("upload")+' Subir entrega</button></div>'}
   h+='<div class="group"><h3>Actualizaciones</h3>'+(t.com.length?t.com.map(function(c){return '<div class="cm"><b>'+esc((user(c.u)||{name:c.u}).name)+'</b> <span class="muted small">'+ftime(c.t)+'</span><div>'+mentionHtml(c.x)+'</div></div>'}).join(""):'<div class="muted small">Aún no hay actualizaciones.</div>')+'<div class="field"><label for="c-new">Escribe una actualización</label><textarea id="c-new" style="min-height:60px" placeholder="Usa @Nombre para avisar a alguien"></textarea></div><div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn" data-act="comment" data-id="'+t.id+'">Publicar</button><span class="muted small">Mencionar:</span>'+S.users.map(function(u){return '<button class="fchip" data-act="mention" data-n="'+esc(mentionTok(u))+'">@'+esc(u.name)+'</button>'}).join("")+'</div></div>';
   h+='<div class="group"><h3>Actividad</h3><div class="log">'+t.hist.slice().reverse().map(function(x){return '<div><b>'+esc((user(x.u)||{name:x.u}).name)+'</b> · '+ftime(x.t)+'<br>'+esc(x.x)+'</div>'}).join("")+'</div></div>';
-  if(isAdmin())h+='<button class="btn danger" data-act="deltask" data-id="'+t.id+'" style="align-self:flex-start">'+(S.armed==="deltask"+t.id?"Toca otra vez para eliminar":"Eliminar tarea")+'</button>';
+  if(isAdmin())h+='<button class="btn danger" data-act="deltask" data-id="'+t.id+'" style="align-self:flex-start">'+(S.armed==="deltask"+t.id?seguro("eliminar esta tarea"):"Eliminar tarea")+'</button>';
   return h;
 }
 function whyModal(m){
@@ -2058,7 +2072,7 @@ function renameModal(m){
   var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(m.t==="acc"?"Editar cuenta":"Editar lista")+'</h2><button class="btn" data-act="close">Cerrar</button></div><form id="renameForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="rn-n">'+(m.t==="acc"?"Nombre de la cuenta":"Nombre de la lista")+'</label><input id="rn-n" required maxlength="60" value="'+esc(o.name)+'"></div><button class="btn primary" type="submit" style="align-self:flex-start">Guardar</button></form>';
   if(m.t==="acc"&&o&&isAdmin()){
     var bl=bloqueosCuenta(o.id);
-    h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Eliminar cuenta</h3>'+(bl.length?'<p class="muted small" style="margin:0">No se puede eliminar porque todavía tiene '+esc(bl.join(", "))+'. Bórralas o muévelas primero.</p>':'<p class="muted small" style="margin:0">Se eliminan la cuenta y sus listas (están vacías). Lo que la mencionaba en la Agenda o la Pizarra se queda sin cuenta.</p><button class="btn danger" data-act="delacc" data-id="'+o.id+'" style="align-self:flex-start">'+(S.armed==="delacc"+o.id?"Toca otra vez para eliminar «"+esc(o.name)+"»":"Eliminar cuenta")+'</button>')+'</div>';
+    h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Eliminar cuenta</h3>'+(bl.length?'<p class="muted small" style="margin:0">No se puede eliminar porque todavía tiene '+esc(bl.join(", "))+'. Bórralas o muévelas primero.</p>':'<p class="muted small" style="margin:0">Se eliminan la cuenta y sus listas (están vacías). Lo que la mencionaba en la Agenda o la Pizarra se queda sin cuenta.</p><button class="btn danger" data-act="delacc" data-id="'+o.id+'" style="align-self:flex-start">'+(S.armed==="delacc"+o.id?seguro("eliminar la cuenta «"+esc(o.name)+"»"):"Eliminar cuenta")+'</button>')+'</div>';
   }
   return h;
 }
@@ -2115,6 +2129,7 @@ function tryStatus(t,k){
   toast("«"+sDef(t).n+"»"+r);
 }
 var ARMABLE={deltask:1,autodel:1,delkn:1,delag:1,reset:1,delref:1,enborrar:1,ctborrar:1,delacc:1};
+function seguro(que,permanente){return '<span class="seguro">¿Confirmas que deseas '+que+'? '+(permanente===false?'Podrás restaurarla desde la papelera.':'Esta acción es permanente y no se puede deshacer.')+' Toca de nuevo para confirmar.</span>'}
 function arm(k){if(S.armed===k){S.armed=null;return true}S.armed=k;render();return false}
 var STEPS={redes:[["Redactar el texto","community"],["Diseñar la pieza","diseno"],["Aprobación del cliente","admin"],["Programar la publicación","community"]],diseno:[["Entender el brief","admin"],["Primera propuesta","diseno"],["Ajustes y entrega","diseno"]]};
 function act(a,el){
@@ -2236,6 +2251,7 @@ function act(a,el){
     S.agenda.forEach(function(x){if(x.acc===id)x.acc=""});S.kanban.notes.forEach(function(n){if(n.acc===id)n.acc=""});
     if(S.accSel===id)S.accSel="";
     S.modal=null;S.view="spaces";S.toTop=true;save();return toast("Cuenta «"+da.name+"» eliminada");
+  case"tema":return ponerTema(el.getAttribute("data-v")||"");
   case"ctnuevo":S.modal={kind:"contacto",acc:el.getAttribute("data-acc")||""};S.pop=null;return render();
   case"ctopen":S.modal={kind:"contacto",id:id};S.pop=null;return render();
   case"ctborrar":if(!arm("ctborrar"+id))return;S.contactos=S.contactos.filter(function(z){return z.id!==id});S.modal=null;save();return toast("Contacto borrado");
@@ -2294,7 +2310,7 @@ document.addEventListener("change",function(e){
   else if(f==="ctc"){S.ct.cuenta=el.value;render()}
   else if(f==="impacc"){S.modal.cuenta=el.value;if(S.modal.texto){var ri=planImportar(S.modal.texto,el.value);S.modal.error=ri.error||"";S.modal.res=ri.error?null:ri}render()}
   else if(f==="impfile"){leerArchivoImp(el.files&&el.files[0])}
-  else if(f==="tema"){S.prefs[S.session]=S.prefs[S.session]||{};S.prefs[S.session].tema=el.value;aplicarTema(el.value);save();render()}
+  else if(f==="tema"){ponerTema(el.value)}
   else if(f==="ajregla"||f==="ajautor"){if(!isAdmin())return render();var aj0=ajAprob();if(f==="ajregla")aj0.regla=el.value;else aj0.autorAprueba=!!el.checked;S.ajustes.aprobacion=aj0;save();render();toast("Ajuste de aprobación guardado")}
   else if(f==="enpersona"){S.en.persona=el.value;render()}
   else if(f==="entipo"){S.en.tipo=el.value;render()}
