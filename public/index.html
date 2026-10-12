@@ -2043,9 +2043,24 @@ function newTaskModal(){
   var cur=listById(def)||(sc&&sc.all?S.lists.find(function(l){return l.type===sc.type}):null)||Ls[0],ty=cur?cur.type:"redes";
   return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Nueva tarea</h2><button class="btn" data-act="close">Cerrar</button></div><form id="newTaskForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="nt-list">Lista</label><select id="nt-list" data-f="ntlist">'+S.lists.map(function(l){return '<option value="'+l.id+'"'+(cur&&l.id===cur.id?" selected":"")+'>'+esc(shortName(acc(l.acc).name)+' · '+l.name)+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-title">Título</label><input id="nt-title" required></div><div class="two"><div class="field"><label for="nt-fmt">Formato</label><select id="nt-fmt">'+FORMATS[ty].map(function(f){return '<option>'+f+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-date">Fecha límite o de publicación</label><input id="nt-date" type="date" value="'+iso(7)+'" required></div></div><div class="two"><div class="field"><label for="nt-prio">Prioridad</label><select id="nt-prio"><option value="">Sin prioridad</option>'+PRIO.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-who">Responsable</label><select id="nt-who"><option value="">Automático según el estado</option>'+S.users.map(function(u){return '<option value="'+u.id+'">'+esc(u.name)+'</option>'}).join("")+'</select></div></div><div class="field"><label for="nt-desc">Descripción</label><textarea id="nt-desc" style="min-height:70px"></textarea></div><label class="chk small" for="nt-steps"><input type="checkbox" id="nt-steps" checked> Agregar los pasos sugeridos como subtareas</label><button class="btn primary" type="submit">Crear en «'+esc(S.stat[ty][0].n)+'»</button></form>';
 }
+function bloqueosCuenta(id){
+  // Lo mismo que revisa el servidor (tareas, calendarios, entregas, contactos), más el tablero de marca con contenido.
+  var r=[],cuenta=function(n,uno,varios){if(n)r.push(n+" "+(n===1?uno:varios))},b=S.boards&&S.boards[id];
+  cuenta(S.tasks.filter(function(t){return t.acc===id}).length,"tarea","tareas");
+  cuenta(S.cals.filter(function(c){return c.acc===id}).length,"calendario","calendarios");
+  cuenta(S.entregas.filter(function(e){return e.cuentaId===id}).length,"entrega (contando la papelera)","entregas (contando la papelera)");
+  cuenta(S.contactos.filter(function(k){return k.cuentaId===id}).length,"contacto","contactos");
+  if(b&&((b.colors||[]).length+(b.fonts||[]).length+(b.refs||[]).length))r.push("su tablero de marca con contenido");
+  return r;
+}
 function renameModal(m){
   var o=m.t==="acc"?acc(m.id):listById(m.id);
-  return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(m.t==="acc"?"Editar cuenta":"Editar lista")+'</h2><button class="btn" data-act="close">Cerrar</button></div><form id="renameForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="rn-n">'+(m.t==="acc"?"Nombre de la cuenta":"Nombre de la lista")+'</label><input id="rn-n" required maxlength="60" value="'+esc(o.name)+'"></div><button class="btn primary" type="submit" style="align-self:flex-start">Guardar</button></form>';
+  var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(m.t==="acc"?"Editar cuenta":"Editar lista")+'</h2><button class="btn" data-act="close">Cerrar</button></div><form id="renameForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="rn-n">'+(m.t==="acc"?"Nombre de la cuenta":"Nombre de la lista")+'</label><input id="rn-n" required maxlength="60" value="'+esc(o.name)+'"></div><button class="btn primary" type="submit" style="align-self:flex-start">Guardar</button></form>';
+  if(m.t==="acc"&&o&&isAdmin()){
+    var bl=bloqueosCuenta(o.id);
+    h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Eliminar cuenta</h3>'+(bl.length?'<p class="muted small" style="margin:0">No se puede eliminar porque todavía tiene '+esc(bl.join(", "))+'. Bórralas o muévelas primero.</p>':'<p class="muted small" style="margin:0">Se eliminan la cuenta y sus listas (están vacías). Lo que la mencionaba en la Agenda o la Pizarra se queda sin cuenta.</p><button class="btn danger" data-act="delacc" data-id="'+o.id+'" style="align-self:flex-start">'+(S.armed==="delacc"+o.id?"Toca otra vez para eliminar «"+esc(o.name)+"»":"Eliminar cuenta")+'</button>')+'</div>';
+  }
+  return h;
 }
 function menuModal(){
   var items=[["cals","Calendarios","check"],["auto","Automatizaciones","bolt"],["pizarra","Pizarra Kanban","note"],["drive","Drive","drive"],["equipo","Equipo","users"],["ajustes","Ajustes","sliders"],["guia","Guía","book"]];
@@ -2099,7 +2114,7 @@ function tryStatus(t,k){
   var r=t.assignees.length?" · ahora: "+names(t.assignees):"";
   toast("«"+sDef(t).n+"»"+r);
 }
-var ARMABLE={deltask:1,autodel:1,delkn:1,delag:1,reset:1,delref:1,enborrar:1,ctborrar:1};
+var ARMABLE={deltask:1,autodel:1,delkn:1,delag:1,reset:1,delref:1,enborrar:1,ctborrar:1,delacc:1};
 function arm(k){if(S.armed===k){S.armed=null;return true}S.armed=k;render();return false}
 var STEPS={redes:[["Redactar el texto","community"],["Diseñar la pieza","diseno"],["Aprobación del cliente","admin"],["Programar la publicación","community"]],diseno:[["Entender el brief","admin"],["Primera propuesta","diseno"],["Ajustes y entrega","diseno"]]};
 function act(a,el){
@@ -2212,6 +2227,15 @@ function act(a,el){
   case"drlink":var df=(S.dr.items||[]).find(function(z){return z.id===id});if(!df)return;S.modal={kind:"drlink",file:{id:df.id,title:df.title,url:safeUrl(df.viewUrl)}};return render();
   case"dldo":var dp=taskById(val("dl-task"));if(!dp)return;dp.files=dp.files||[];if(dp.files.some(function(z){return z.id===S.modal.file.id})){S.modal=null;return toast("Ese archivo ya estaba vinculado")}dp.files.push(S.modal.file);logT(dp,"Vinculó el archivo de Drive «"+S.modal.file.title+"»");S.modal=null;save();return toast("Archivo vinculado a la tarea");
   case"drunlink":t.files.splice(+el.getAttribute("data-j"),1);logT(t,"Quitó un archivo de Drive");save();return render();
+  case"delacc":
+    var da=acc(id);if(!da||!isAdmin())return;
+    var dbl=bloqueosCuenta(id);if(dbl.length)return toast("No se puede eliminar: tiene "+dbl.join(", "));
+    if(!arm("delacc"+id))return;
+    S.accounts=S.accounts.filter(function(z){return z.id!==id});S.lists=S.lists.filter(function(l){return l.acc!==id});
+    if(S.boards)delete S.boards[id];
+    S.agenda.forEach(function(x){if(x.acc===id)x.acc=""});S.kanban.notes.forEach(function(n){if(n.acc===id)n.acc=""});
+    if(S.accSel===id)S.accSel="";
+    S.modal=null;S.view="spaces";S.toTop=true;save();return toast("Cuenta «"+da.name+"» eliminada");
   case"ctnuevo":S.modal={kind:"contacto",acc:el.getAttribute("data-acc")||""};S.pop=null;return render();
   case"ctopen":S.modal={kind:"contacto",id:id};S.pop=null;return render();
   case"ctborrar":if(!arm("ctborrar"+id))return;S.contactos=S.contactos.filter(function(z){return z.id!==id});S.modal=null;save();return toast("Contacto borrado");

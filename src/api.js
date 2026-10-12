@@ -129,6 +129,19 @@ export function permiso(usuario, c) {
 	return null;
 }
 
+// Eliminar una cuenta: solo Dirección, y solo si nada depende de ella (tareas, calendarios, entregas, contactos).
+// Sus listas vacías y su tablero se borran en el mismo cambio desde la pantalla.
+export async function motivoNoBorrarCuenta(env, id, usuario) {
+	if (usuario.role !== 'admin') return 'Solo Dirección puede eliminar cuentas';
+	const r = await env.DB.prepare(
+		"SELECT tipo, COUNT(*) AS n FROM entidades WHERE borrado = 0 AND ((tipo IN ('task', 'cal') AND json_extract(datos, '$.acc') = ?1) " +
+		"OR (tipo IN ('entrega', 'contacto') AND json_extract(datos, '$.cuentaId') = ?1)) GROUP BY tipo",
+	).bind(id).all();
+	const NOMBRES = { task: 'tareas', cal: 'calendarios', entrega: 'entregas', contacto: 'contactos' };
+	const hay = (r.results || []).filter((x) => x.n > 0).map((x) => `${x.n} ${NOMBRES[x.tipo]}`);
+	return hay.length ? `La cuenta todavía tiene ${hay.join(', ')}` : null;
+}
+
 // Lo que el servidor tiene hoy de un elemento, para que la pantalla deshaga un cambio rechazado.
 async function estadoActual(env, tipo, id) {
 	const f = await env.DB.prepare('SELECT tipo, id, datos, version, seq, creado, borrado FROM entidades WHERE tipo = ?1 AND id = ?2').bind(tipo, id).first();
@@ -192,6 +205,10 @@ export async function manejarApi(request, env) {
 					const a = ya ? { motivo: 'La actividad no se edita ni se borra' } : actividadDeCliente(c, q.usuario);
 					if (a.motivo) { rechazados.push({ tipo: c.tipo, id: c.id, motivo: a.motivo }); continue; }
 					c.datos = a.datos;
+				}
+				if (c.tipo === 'account' && c.datos === null) {
+					const m = await motivoNoBorrarCuenta(env, c.id, q.usuario);
+					if (m) { rechazados.push({ tipo: c.tipo, id: c.id, motivo: m }); continue; }
 				}
 				if (c.tipo === 'contacto') {
 					const k = await prepararContacto(env, c, q.usuario);
