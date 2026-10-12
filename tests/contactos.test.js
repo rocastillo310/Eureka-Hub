@@ -119,3 +119,14 @@ test('eliminar una cuenta: solo Dirección y solo si no tiene tareas, calendario
 	assert.equal((await borrarCuenta(env, ana, 'c2', c2)).rechazados, undefined);
 	assert.equal(await cuenta(env, 'c2'), null);
 });
+
+test('subcarpetas: cualquiera crea listas con subcarpeta, pero solo Dirección elimina listas', async () => {
+	const env = await entorno();
+	const r1 = await sync(env, beto, [{ tipo: 'list', id: 'l9', base: null, datos: { id: 'l9', acc: 'c1', type: 'redes', name: 'Octubre', grupo: 'Trufas' } }]);
+	assert.equal(r1.rechazados, undefined);
+	const f = await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'list' AND id = 'l9' AND borrado = 0").first();
+	assert.equal(JSON.parse(f.datos).grupo, 'Trufas');
+	const base = JSON.parse(f.datos);
+	assert.match((await sync(env, beto, [{ tipo: 'list', id: 'l9', base, datos: null }])).rechazados[0].motivo, /Solo Dirección/);
+	assert.equal((await sync(env, ana, [{ tipo: 'list', id: 'l9', base, datos: null }])).rechazados, undefined);
+});
