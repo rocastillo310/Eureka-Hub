@@ -80,7 +80,7 @@ Cuando Dirección agrega o cambia a alguien en **Equipo**, el Worker deja la lis
 
 - `CF_ACCOUNT_ID`: id de la cuenta de Cloudflare.
 - `ACCESS_POLITICA_ID`: id de la política reutilizable de Access de la app.
-- `CF_API_TOKEN`: token de API con **un solo permiso**: *Account · Access: Apps and Policies · Edit*, limitado a esta cuenta. Lo crea Dirección en el dashboard y lo guarda con `npx wrangler secret put CF_API_TOKEN`; nunca se pega en el chat ni en el repositorio.
+- `CF_API_TOKEN`: token de API de la cuenta con **un solo permiso**: *Access: Policies Write*, limitado a esta cuenta. Ojo: *Access: Apps Write* no alcanza (sirve para aplicaciones, no para políticas) y Cloudflare responde 403 con código 1010. Lo crea Dirección en el dashboard y lo guarda con `npx wrangler secret put CF_API_TOKEN`; nunca se pega en el chat ni en el repositorio.
 
 ## Entregas (archivos)
 
