@@ -7,7 +7,7 @@ import { d1Falso } from './d1-falso.js';
 import { r2Falso } from './r2-falso.js';
 import { llavesDePrueba, EQUIPO, AUD } from './jwt-prueba.js';
 import { _reiniciarCache } from '../src/access.js';
-import { nombreSeguro } from '../src/entregas.js';
+import { nombreSeguro, estadoDe } from '../src/entregas.js';
 
 const { buscar, identidad } = await llavesDePrueba();
 globalThis.fetch = buscar;
@@ -119,7 +119,7 @@ test('la entrega llega a las demás pantallas por sync', async () => {
 	const r = await subir(env, beto, { archivo: 'logo.png', cuentaId: 'c1' }, bytesDe(1000));
 	const s = await json(await pedir(env, 'sync', { como: ana, cuerpo: { desde: b.json.cursor, cambios: [] } }));
 	const tipos = s.json.entidades.map((x) => x.tipo + ':' + (x.tipo === 'entrega' ? x.id : '')).sort();
-	assert.deepEqual(tipos, ['actividad:', 'entrega:' + r.entregaId]);
+	assert.deepEqual(tipos, ['actividad:', 'entrega:' + r.entregaId, 'inbox:']); // inbox: el aviso a Ana, que aprueba
 	assert.equal(s.json.entidades.find((x) => x.tipo === 'entrega').datos.nombre, 'logo'); // sin nombre, se usa el del archivo
 });
 
@@ -321,4 +321,123 @@ test('nombres seguros para la llave de R2', () => {
 	assert.equal(nombreSeguro('../../etc/passwd'), 'etc-passwd');
 	assert.equal(nombreSeguro('ñññ.pdf'), 'nnn.pdf');
 	assert.equal(nombreSeguro('???.pdf'), 'archivo.pdf');
+});
+
+// ---------- F3: aprobaciones, avisos y actividad ----------
+const avisos = async (env, para) => ((await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'inbox' AND borrado = 0 ORDER BY seq").all()).results || [])
+	.map((f) => JSON.parse(f.datos)).filter((i) => !para || i.to === para);
+const decidir = (env, como, cuerpo) => pedir(env, 'entregas/decidir', { como, cuerpo }).then(json);
+const dani = 'dani@agencia.test';
+const DANI = { id: 'dani', name: 'Dani', role: '', email: dani, aprueba: true };
+async function ponerAjuste(env, datos) {
+	const s = await json(await pedir(env, 'sync', { como: ana, cuerpo: { desde: 0, cambios: [{ tipo: 'ajuste', id: 'aprobacion', base: null, datos }] } }));
+	assert.equal(s.json.rechazados, undefined);
+}
+
+test('una entrega nueva avisa a quienes aprueban (no a quien la subió) y queda en la actividad para todos', async () => {
+	const env = await entorno();
+	await poner(env, 'user', 'dani', DANI);
+	const { entregaId } = await subir(env, beto, { archivo: 'reel.mp4', nombre: 'Reel', cuentaId: 'c1' }, bytesDe(100));
+	const a = await avisos(env);
+	assert.deepEqual(a.map((x) => x.to).sort(), ['ana', 'dani']);
+	assert.equal(a[0].entrega, entregaId);
+	assert.equal(a[0].x, 'Beto entregó «Reel» en Cliente Uno: falta tu aprobación');
+	// Si quien sube también aprueba, no se avisa a sí mismo.
+	await subir(env, ana, { archivo: 'b.pdf', cuentaId: 'c1' }, bytesDe(10));
+	assert.ok(!(await avisos(env, 'ana')).some((x) => /«b»/.test(x.x)));
+	// La actividad la ve todo el equipo.
+	const s = await json(await pedir(env, 'bootstrap', { como: caro }));
+	assert.ok(s.json.entidades.some((x) => x.tipo === 'actividad' && x.datos.verbo === 'entregó' && x.datos.objeto.id === entregaId));
+});
+
+test('aprobar: solo quien tiene «aprueba», nunca la propia entrega (por defecto) y sobre la versión actual', async () => {
+	const env = await entorno();
+	const { entregaId } = await subir(env, ana, { archivo: 'reel.mp4', nombre: 'Reel', cuentaId: 'c1' }, bytesDe(100));
+	assert.equal((await decidir(env, beto, { id: entregaId, version: 1, decision: 'aprobada' })).estado, 403); // Beto no aprueba
+	assert.equal((await decidir(env, ana, { id: entregaId, version: 1, decision: 'aprobada' })).estado, 403); // es su entrega
+	await ponerAjuste(env, { regla: 'uno', autorAprueba: true });
+	assert.equal((await decidir(env, ana, { id: entregaId, version: 0, decision: 'aprobada' })).estado, 409); // versión vieja
+	assert.equal((await decidir(env, ana, { id: entregaId, version: 1, decision: 'quizá' })).estado, 400);
+	const r = await decidir(env, ana, { id: entregaId, version: 1, decision: 'aprobada', por: 'beto' });
+	assert.equal(r.estado, 200);
+	const e = await fila(env, 'entrega', entregaId);
+	assert.equal(e.estado, 'aprobada');
+	assert.equal(e.aprobaciones[0].por, 'ana'); // el servidor ignora lo que mande la pantalla
+	assert.equal(e.versiones[0].aprobaciones.length, 1);
+	assert.ok((await actividades(env)).some((a) => a.verbo === 'aprobó' && a.por === 'ana'));
+});
+
+test('pedir cambios exige comentario, regresa la entrega a quien la subió y la versión nueva vuelve a pendiente', async () => {
+	const env = await entorno();
+	const { entregaId } = await subir(env, beto, { archivo: 'reel.mp4', nombre: 'Reel', cuentaId: 'c1' }, bytesDe(100));
+	assert.equal((await decidir(env, ana, { id: entregaId, version: 1, decision: 'cambios', comentario: '  ' })).estado, 400);
+	assert.equal((await decidir(env, ana, { id: entregaId, version: 1, decision: 'cambios', comentario: 'Sube el volumen' })).estado, 200);
+	assert.equal((await fila(env, 'entrega', entregaId)).estado, 'cambios');
+	const aviso = (await avisos(env, 'beto')).pop();
+	assert.equal(aviso.x, 'Ana pidió cambios en «Reel»: Sube el volumen');
+	assert.equal(aviso.entrega, entregaId);
+	assert.equal((await actividades(env)).find((a) => a.verbo === 'pidió cambios en').detalle, 'Sube el volumen');
+	// Versión 2: vuelve a pendiente y se avisa otra vez a quien aprueba.
+	await subir(env, beto, { entregaId, archivo: 'reel2.mp4' }, bytesDe(100));
+	const e = await fila(env, 'entrega', entregaId);
+	assert.equal(e.estado, 'pendiente');
+	assert.deepEqual(e.aprobaciones, []);
+	assert.equal(e.versiones[0].aprobaciones[0].decision, 'cambios'); // la historia de la v1 se conserva
+	assert.match((await avisos(env, 'ana')).pop().x, /subió la versión 2 de «Reel»/);
+	// Ana aprueba la v2: queda aprobada y Beto recibe el aviso.
+	await decidir(env, ana, { id: entregaId, version: 2, decision: 'aprobada' });
+	assert.equal((await fila(env, 'entrega', entregaId)).estado, 'aprobada');
+	assert.equal((await avisos(env, 'beto')).pop().x, '«Reel» quedó aprobada');
+});
+
+test('regla «todos»: queda aprobada hasta que aprueban todas las personas que pueden', async () => {
+	const env = await entorno();
+	await poner(env, 'user', 'dani', DANI);
+	await ponerAjuste(env, { regla: 'todos', autorAprueba: false });
+	const { entregaId } = await subir(env, beto, { archivo: 'reel.mp4', cuentaId: 'c1' }, bytesDe(100));
+	await decidir(env, ana, { id: entregaId, version: 1, decision: 'aprobada' });
+	assert.equal((await fila(env, 'entrega', entregaId)).estado, 'pendiente');
+	await decidir(env, ana, { id: entregaId, version: 1, decision: 'aprobada' }); // votar dos veces no cuenta doble
+	assert.equal((await fila(env, 'entrega', entregaId)).estado, 'pendiente');
+	await decidir(env, dani, { id: entregaId, version: 1, decision: 'aprobada' });
+	const e = await fila(env, 'entrega', entregaId);
+	assert.equal(e.estado, 'aprobada');
+	assert.equal(e.aprobaciones.length, 2);
+});
+
+test('estadoDe: los «cambios» de alguien ganan hasta que esa persona cambie su decisión', () => {
+	const us = [{ id: 'a', aprueba: true }, { id: 'b', aprueba: true }, { id: 'c', aprueba: false }];
+	const e = (aprobaciones) => ({ version: 1, subidoPor: 'c', aprobaciones });
+	const uno = { regla: 'uno', autorAprueba: false }, todos = { regla: 'todos', autorAprueba: false };
+	assert.equal(estadoDe(e([]), us, uno), 'pendiente');
+	assert.equal(estadoDe(e([{ por: 'a', decision: 'aprobada', version: 1 }, { por: 'b', decision: 'cambios', version: 1 }]), us, uno), 'cambios');
+	assert.equal(estadoDe(e([{ por: 'b', decision: 'cambios', version: 1 }, { por: 'b', decision: 'aprobada', version: 1 }]), us, uno), 'aprobada');
+	assert.equal(estadoDe(e([{ por: 'a', decision: 'aprobada', version: 0 }]), us, uno), 'pendiente'); // de otra versión
+	assert.equal(estadoDe(e([{ por: 'a', decision: 'aprobada', version: 1 }]), us, todos), 'pendiente');
+});
+
+test('solo Dirección cambia los ajustes de aprobación', async () => {
+	const env = await entorno();
+	const s = await json(await pedir(env, 'sync', { como: beto, cuerpo: { desde: 0, cambios: [{ tipo: 'ajuste', id: 'aprobacion', base: null, datos: { regla: 'todos' } }] } }));
+	assert.equal(s.json.rechazados.length, 1);
+	assert.equal(await fila(env, 'ajuste', 'aprobacion'), null);
+});
+
+test('actividad de tareas: la pantalla la crea, el servidor pone autor y hora, y no se edita ni se borra', async () => {
+	const env = await entorno();
+	const a = { id: 'act1', t: '2000-01-01T00:00:00Z', por: 'ana', verbo: 'movió', objeto: { tipo: 'task', id: 't1', titulo: 'Reel' }, cuentaId: 'c1', detalle: 'a «Diseño»' };
+	const s1 = await json(await pedir(env, 'sync', { como: beto, cuerpo: { desde: 0, cambios: [{ tipo: 'actividad', id: 'act1', base: null, datos: a }] } }));
+	assert.equal(s1.json.rechazados, undefined);
+	const g = await fila(env, 'actividad', 'act1');
+	assert.equal(g.por, 'beto');
+	assert.notEqual(g.t, a.t);
+	assert.equal(g.detalle, 'a «Diseño»');
+	const s2 = await json(await pedir(env, 'sync', { como: beto, cuerpo: { desde: 0, cambios: [
+		{ tipo: 'actividad', id: 'act1', base: g, datos: { ...g, verbo: 'borró todo' } },
+		{ tipo: 'actividad', id: 'act1', base: g, datos: null },
+		{ tipo: 'actividad', id: 'act2', base: null, datos: { ...a, id: 'act2', objeto: { tipo: 'entrega', id: 'x', titulo: 'Falsa' } } },
+	] } }));
+	assert.equal(s2.json.rechazados.length, 3);
+	assert.equal((await fila(env, 'actividad', 'act1')).verbo, 'movió');
+	assert.equal(await fila(env, 'actividad', 'act2'), null);
 });

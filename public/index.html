@@ -367,6 +367,14 @@ input.plain{border:1px solid var(--line);border-radius:8px;padding:8px 10px;back
 .mref figcaption .btn{margin-left:auto}
 .mlink{display:flex;flex-direction:column;gap:2px;padding:12px;font-weight:600;color:var(--accent);overflow-wrap:anywhere;text-decoration:none}
 .mlink:hover{text-decoration:underline}
+/* área general */
+.gen{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;align-items:start}
+@media (max-width:980px){.gen{grid-template-columns:1fr}}
+.item.act{grid-template-columns:auto minmax(0,1fr) auto;align-items:center}
+.item.act .t{font-weight:500}
+div.item.act{cursor:default}div.item.act:hover{border-color:var(--line)}
+fieldset.opts{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.sbf.off{opacity:.55}
 /* entregas */
 a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px}
 .dropzone{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;text-align:center;border:2px dashed var(--line);border-radius:12px;padding:18px;color:var(--muted);cursor:pointer;background:var(--surface);width:100%;font:inherit}
@@ -426,6 +434,7 @@ var ICONS={
  chev:'<path d="M9 6l6 6-6 6"/>',
  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
+ pulse:'<path d="M3 12h4l3 8 4-16 3 8h4"/>',
  upload:'<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/>',
  sliders:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'
 };
@@ -454,10 +463,10 @@ function seed(){
   ];
   return {users:[{id:"rodrigo",name:"Rodrigo",role:"admin",pass:"",hue:0,cap:6}],accounts:[],lists:[],tasks:[],cals:[],agenda:[],
     kanban:{cols:[{id:"k1",name:"Backlog",limit:0,tone:"pro"},{id:"k2",name:"Por iniciar",limit:0,tone:"cli"},{id:"k3",name:"En curso",limit:3,tone:"red"},{id:"k4",name:"Hecho",limit:0,tone:"pub"}],notes:[]},
-    autos:autos,stat:JSON.parse(JSON.stringify(STAT0)),inbox:[],boards:{},entregas:[],actividad:[],seq:300};
+    autos:autos,stat:JSON.parse(JSON.stringify(STAT0)),inbox:[],boards:{},entregas:[],actividad:[],ajustes:{},seq:300};
 }
 function ui(){
-  S.seen=S.seen||{};S.moreCols=false;S.armed=null;S.inbTab="todo";S.view="dia";S.vw="tablero";S.listId="";
+  S.seen=S.seen||{};S.moreCols=false;S.armed=null;S.inbTab="todo";S.view="general";S.gen={f:"todo",lim:40};S.vw="tablero";S.listId="";
   S.q={text:"",who:"",preset:"",group:"estado",hideDone:false,type:"redes",acc:""};
   S.col={};S.exp={};S.open={};S.pop=null;S.modal=null;S.toast="";S.err="";
   S.calMonth=iso(0).slice(0,7);S.kf={acc:"",mine:false};S.agDay=iso(0);S.agMonth=iso(0).slice(0,7);S.agWho="yo";S.agMode="tareas";S.pubAcc="";
@@ -471,7 +480,7 @@ function load(){
   var d=null;try{d=JSON.parse(localStorage.getItem(KEY))}catch(e){}
   S=d&&d.tasks&&d.lists&&d.users?d:seed();
   if(!S.prefs)S.prefs={};if(!S.boards)S.boards={};if(!S.inbox)S.inbox=[];if(!S.seen)S.seen={};if(!S.autos)S.autos=seed().autos;if(!S.stat)S.stat=JSON.parse(JSON.stringify(STAT0));
-  S.entregas=[];S.actividad=[]; // solo existen con servidor
+  S.entregas=[];S.actividad=[];if(!S.ajustes)S.ajustes={}; // entregas y actividad solo existen con servidor
   S.session=null;ui();
   try{var u=sessionStorage.getItem(KEY+"-u");if(u&&S.users.some(function(x){return x.id===u}))S.session=u}catch(e){}
   applyPref();
@@ -578,6 +587,7 @@ function setStatus(t,k,why,auto){
   runStatusAutos(t,k);
   CTX_WHY="";
   if(ni<oldi&&why&&t.assignees.join(",")===before)t.assignees.forEach(function(i){notify(i,"«"+t.title+"» regresó a «"+sDef(t).n+"»: "+why,t.id)});
+  registrarAct(ni<oldi?"regresó":"movió",t,"a «"+sDef(t).n+"»"+(t.assignees.length?" · ahora: "+names(t.assignees):"")+(ni<oldi&&why?" · motivo: "+why:""));
 }
 function runDue(){
   var ch=false;
@@ -603,6 +613,7 @@ function createTask(o){
   S.tasks.push(t);
   logT(t,"Creada en «"+statName(L.type,st)+"»"+(o.via?" ("+o.via+")":""));
   if(!t.assignees.length)runStatusAutos(t,st);
+  if(o.via!=="calendario aprobado"&&o.via!=="pendientes de junta")registrarAct("creó",t,L.name+(t.assignees.length?" · para "+names(t.assignees):""));
   runDue();
   return t;
 }
@@ -721,7 +732,7 @@ function tree(){
 }
 function shell(){
   var u=me(),h='<div class="shell"><aside class="side"><div class="brand"><i></i> Eureka Hub</div><nav class="nav" aria-label="Principal">'+
-  navBtn("dia","Mi día","home")+navBtn("entregas","Entregas","upload")+navBtn("bandeja","Bandeja","inbox",unread())+navBtn("agenda","Agenda","calendar")+navBtn("panel","Panel","panel")+
+  navBtn("general","Área general","pulse")+navBtn("dia","Mi día","home")+navBtn("entregas","Entregas","upload")+navBtn("bandeja","Bandeja","inbox",unread())+navBtn("agenda","Agenda","calendar")+navBtn("panel","Panel","panel")+
   '<div class="navlbl">Espacios</div>'+navBtn("spaces","Cuentas","folder")+tree()+
   '<div class="navlbl">Herramientas</div>'+navBtn("cals","Calendarios","check",pendCals()||"","sec")+navBtn("auto","Automatizaciones","bolt",0,"sec")+navBtn("pizarra","Pizarra Kanban","note",0,"sec")+navBtn("drive","Drive","drive",0,"sec")+navBtn("equipo","Equipo","users",0,"sec")+navBtn("ajustes","Ajustes","sliders",0,"sec")+navBtn("guia","Guía","book",0,"sec")+
   '<button data-act="menu" class="moreNav'+(SEC.indexOf(S.view)>-1?" on":"")+'"><span class="row" style="gap:8px">'+ic("grid")+'<span>Más</span></span></button>'+
@@ -737,7 +748,7 @@ function shell(){
 }
 function view(){
   switch(S.view){
-    case"dia":return vDia();case"bandeja":return vBandeja();case"agenda":return vAgenda();case"panel":return vPanel();
+    case"general":return vGeneral();case"dia":return vDia();case"bandeja":return vBandeja();case"agenda":return vAgenda();case"panel":return vPanel();
     case"spaces":return vSpaces();case"space":return vSpace();case"list":return vList();
     case"cals":return vCals();case"auto":return vAuto();case"pizarra":return vKanban();case"drive":return vDrive();case"equipo":return vEquipo();case"guia":return vGuia();
     case"entregas":return vEntregas();case"ajustes":return vAjustes();
@@ -759,6 +770,10 @@ function vDia(){
   var lt=mine.filter(function(t){return dayDiff(t.date)<0}),hoy=mine.filter(function(t){return dayDiff(t.date)===0}),sem=mine.filter(function(t){var d=dayDiff(t.date);return d>0&&d<=7}),des=mine.filter(function(t){return dayDiff(t.date)>7});
   var h='<div class="head"><div><h2>Hola, '+esc(u.name)+'</h2><div class="muted">'+esc(cap(new Date().toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long"})))+' · '+esc(rolNombre(u.role))+'</div></div><div class="actions"><button class="btn primary" data-act="newtask">+ Nueva tarea</button></div></div>';
   if(!S.seen[u.id])h+='<div class="panel welcome"><h3 style="font-size:18px">Así se usa, en 3 pasos</h3><ol><li><b>Aquí ves tu día.</b> Lo que te toca hacer aparece abajo, ordenado por fecha.</li><li><b>Cambia el estado con un toque</b> sobre la etiqueta de color (por ejemplo, de «Redacción» a «Diseño»). La plataforma avisa sola a quien sigue.</li><li><b>Para avisar a alguien,</b> abre la tarea y escribe @ y su nombre.</li></ol><div class="actions"><button class="btn primary" data-act="seen">Entendido</button><button class="btn" data-act="nav" data-v="guia">Ver la guía</button></div></div>';
+  h+=gruposEntregas();
+  // Menciones, asignaciones y avisos de aprobación sin leer: así un mensaje con @Nombre también aparece en su día.
+  var sinLeer=S.inbox.filter(function(i){return i.to===u.id&&!i.read}).sort(function(a,b){return a.t<b.t?1:-1});
+  if(sinLeer.length)h+='<div class="group"><h3>Avisos para ti <span class="muted small tnum">'+sinLeer.length+'</span></h3><div class="list">'+sinLeer.slice(0,5).map(avisoRow).join("")+'</div>'+(sinLeer.length>5?'<button class="btn small" data-act="nav" data-v="bandeja" style="align-self:flex-start">Ver los '+sinLeer.length+' en la Bandeja</button>':"")+'</div>';
   h+='<div class="tiles">'+tile(mine.length,"Mis tareas abiertas")+tile(lt.length,"Atrasadas",lt.length?"bad":"")+tile(hoy.length,"Vencen hoy")+tile(unread(),"Sin leer en Bandeja")+'</div>';
   var ags=S.agenda.filter(function(x){return x.date===iso(0)&&!x.done&&(x.owner===u.id)});
   if(ags.length)h+='<div class="panel"><h3 style="font-size:16px;margin-bottom:6px">Agenda de hoy</h3>'+ags.map(agRow).join("")+'</div>';
@@ -777,7 +792,8 @@ var INB_TABS=[["todo","Todo"],["avisos","Avisos"],["menciones","Menciones"],["ta
 var INB_VACIO={todo:"No hay nada pendiente para ti por ahora.",avisos:"No tienes avisos. Cuando alguien te asigne una tarea o te mencione con @, aparecerá aquí.",menciones:"Nadie te ha mencionado todavía. Cuando alguien escriba @tu nombre en una tarea, aparecerá aquí.",tareas:"No tienes tareas, subtareas ni calendarios pendientes.",notas:"No tienes notas asignadas en la pizarra Kanban.",agenda:"No tienes actividades ni tareas personales pendientes."};
 function esMencion(i){return i.x.indexOf("te mencionó")>-1}
 function avisoRow(i){
-  var t=i.task?taskById(i.task):null;
+  var t=i.task?taskById(i.task):null,en=i.entrega?entById(i.entrega):null;
+  if(en&&!t){var ae=acc(en.cuentaId);return '<button class="item inb'+(i.read?"":" unread")+'" data-act="inbopen" data-id="'+i.id+'"><span class="t">'+(i.read?"":'<i class="udot"></i>')+esc(i.x)+'</span><span class="muted small">'+ftime(i.t)+'</span><span class="meta">'+(ae?accDot(ae)+esc(shortName(ae.name))+' · ':"")+enPill(en)+'</span></button>'}
   return '<button class="item inb'+(i.read?"":" unread")+'" data-act="inbopen" data-id="'+i.id+'"><span class="t">'+(i.read?"":'<i class="udot"></i>')+esc(i.x)+'</span><span class="muted small">'+ftime(i.t)+'</span>'+(t?'<span class="meta">'+accDot(acc(t.acc))+esc(shortName(acc(t.acc).name))+' · '+stPill(t)+'</span>':"")+'</button>';
 }
 function noteRow(n){
@@ -1222,6 +1238,8 @@ function vGuia(){
   '<h3>Alertas</h3><ul><li><b>En riesgo:</b> faltan 2 días o menos y la tarea aún no está en una etapa final o programada.</li><li><b>Atrasada:</b> pasó la fecha y no está terminada.</li></ul>'+
   '<h3>Bandeja, Mi día y Panel</h3><p>Bandeja junta los avisos. Mi día muestra tus tareas por urgencia. Panel resume todas las cuentas.</p>'+
   '<h3>Pizarra Kanban y Agenda</h3><p>La pizarra son notas libres con columnas y límites; una nota se puede convertir en tarea. La Agenda junta actividades, tareas personales y las fechas de entrega de tus tareas. En su pestaña «Publicaciones» ves solo lo que se publica cada día en redes, de todas las cuentas o de una.</p>'+
+  '<h3>Área general</h3><p>Es la pantalla de inicio. Muestra lo que pasa en el equipo: quién entregó, aprobó o pidió cambios, y qué tareas se crearon, movieron o asignaron. A la derecha, «Quién tiene qué» cuenta las tareas abiertas de cada persona. Con «Pendientes de junta» pegas el mensaje de la junta (como el de WhatsApp: @Nombre: y sus pendientes con viñetas) y se vuelven tareas asignadas con aviso a cada quien.</p>'+
+  '<h3>Aprobación de entregas</h3><p>Quien tiene «Aprueba entregas» en Equipo recibe un aviso cuando llega una entrega o una versión nueva. Abre la entrega, revísala y elige «Aprobar» o «Pedir cambios» (con comentario). Los cambios regresan la entrega a quien la subió, con aviso en su Bandeja. Cuántas aprobaciones hacen falta se configura en Ajustes.</p>'+
   '<h3>Entregas</h3><p>Aquí se sube todo lo que se entrega: video, imágenes, PDF, documentos y archivos de diseño. Se ordena por cuenta y luego por lista. Arrastra los archivos a la pantalla o usa «Subir»; si se corta el internet, «Reintentar» sigue donde se quedó. Para corregir algo, abre la entrega y sube una versión nueva: las anteriores se conservan. Borrar manda a la papelera; borrar para siempre lo hace Dirección o quien creó la entrega, y pide confirmación.</p>'+
   '<h3>Drive</h3><p>Muestra la carpeta compartida del equipo de diseño, solo lectura. Puedes abrir archivos y vincularlos a una tarea.</p>'+
   '<h3>Sobre este prototipo</h3><p>Mientras no haya servidor, los datos se guardan solo en este navegador y la contraseña se crea en el primer ingreso. El inicio de sesión es de piloto: la versión real necesita un servidor para guardar contraseñas de forma segura y compartir los datos entre todos.</p></div>';
@@ -1581,6 +1599,7 @@ function entregaModal(m){
   var mias=SUB.filter(function(j){return(j.entregaId===e.id||j.datos.entregaId===e.id)&&j.estado!=="listo"});
   if(mias.length)h+='<div class="panel upl" aria-live="polite">'+mias.map(subRowHtml).join("")+'</div>';
   h+='<div class="props panel">'+enProp("Archivo",esc(v.archivo))+enProp("Tamaño",fbytes(v.tamano))+enProp("Tipo",tipoNombre(tipoEn(v.mime)))+enProp("Subió",esc(uname(v.subidoPor))+' · '+ftime(v.subidoEn))+(t?enProp("Tarea",esc(t.title)):"")+(v.notas?enProp("Qué cambió",esc(v.notas)):"")+(e.notas?enProp("Notas",'<span style="white-space:pre-line">'+esc(e.notas)+'</span>'):"")+'</div>';
+  h+=aprobPanel(e,v);
   if(vs.length>1)h+='<div class="group"><h3>Versiones</h3><div class="list">'+vs.map(function(x){var on=x.version===v.version;return '<div class="item" style="grid-template-columns:1fr auto"><span class="t">Versión '+x.version+(x.version===e.version?' · la más reciente':"")+'</span><span class="actions">'+(on?'<span class="pill st-programada">En pantalla</span>':'<button class="btn small" data-act="enver" data-id="'+e.id+'" data-v="'+x.version+'">Ver</button>')+'<a class="btn small" href="'+esc(urlArchivo(e,x.version,true))+'" download>Descargar</a></span><span class="meta">'+esc(x.archivo)+' · '+fbytes(x.tamano)+' · '+esc(uname(x.subidoPor))+' · '+ftime(x.subidoEn)+(x.notas?' · '+esc(x.notas):"")+'</span></div>'}).join("")+'</div></div>';
   var hist=S.actividad.filter(function(x){return x.objeto&&x.objeto.id===e.id}).sort(function(x,y){return x.t<y.t?1:-1});
   if(hist.length)h+='<div class="group"><h3>Actividad</h3><div class="log">'+hist.map(function(x){return '<div><b>'+esc(uname(x.por))+'</b> '+esc(x.verbo)+' «'+esc(x.objeto.titulo)+'»'+(x.detalle?' · '+esc(x.detalle):"")+'<br><span class="muted small">'+ftime(x.t)+'</span></div>'}).join("")+'</div></div>';
@@ -1600,6 +1619,7 @@ function vAjustes(){
   var h='<div class="head"><div><h2>Ajustes</h2><div class="muted">Configuración y uso de la plataforma</div></div></div>';
   if(!SRV)return h+'<div class="empty">Los ajustes aparecen al usar la plataforma en línea.</div>';
   cargarCfg();
+  h+=ajAprobPanel();
   var u=usoBytes(),pct=Math.min(100,u.total/GRATIS_BYTES*100),alto=pct>=80,porCuenta={};
   S.entregas.forEach(function(e){porCuenta[e.cuentaId]=(porCuenta[e.cuentaId]||0)+enTam(e)});
   h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Almacenamiento de entregas</h3><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:baseline"><span><b class="tnum" style="font-size:22px;font-family:var(--font-display)">'+fbytes(u.total)+'</b> <span class="muted">de 10 GB gratis</span></span><b class="tnum"'+(alto?' style="color:var(--bad)"':"")+'>'+(u.total&&pct<1?"menos de 1":Math.round(pct))+' %</b></div><span class="bar'+(alto?" alto":"")+'" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(pct)+'" aria-label="Almacenamiento usado"><i style="width:'+pct+'%"></i></span>'+
@@ -1608,6 +1628,171 @@ function vAjustes(){
     (Object.keys(porCuenta).length?'<div class="list">'+Object.keys(porCuenta).sort(function(x,y){return porCuenta[y]-porCuenta[x]}).map(function(k){var a=acc(k);return '<div class="row" style="justify-content:space-between;gap:8px"><span>'+(a?accDot(a)+' '+esc(a.name):"Cuenta borrada")+'</span><span class="tnum muted">'+fbytes(porCuenta[k])+'</span></div>'}).join("")+'</div>':"")+'</div>';
   if(CFG)h+='<div class="panel" style="display:flex;flex-direction:column;gap:8px"><h3>Archivos</h3><p class="muted small" style="margin:0">Máximo por archivo: <b>'+fbytes(CFG.maxBytes)+'</b>. Tipos aceptados: '+CFG.extensiones.map(function(x){return "."+x}).join(", ")+'. Se ven dentro de la plataforma: imágenes, video, audio y PDF; lo demás se descarga.</p></div>';
   return h;
+}
+
+/* ---------- Área general (F3): actividad del equipo, aprobaciones y pendientes de junta ---------- */
+// Actividad de tareas: la crea la pantalla y el servidor le pone autor y hora. Solo con servidor.
+function registrarAct(verbo,t,detalle){
+  if(!SRV)return;
+  var x={id:"act"+nid(),t:nowIso(),por:S.session,verbo:verbo,objeto:{tipo:"task",id:t.id,titulo:t.title},cuentaId:t.acc};
+  if(detalle)x.detalle=detalle;
+  S.actividad.push(x);
+}
+// Valores provisionales mientras Dirección no decida (iguales a los del servidor).
+function ajAprob(){var a=(S.ajustes&&S.ajustes.aprobacion)||{};return{regla:a.regla==="todos"?"todos":"uno",autorAprueba:a.autorAprueba===true}}
+function puedoAprobar(e){var u=me();return !!u.aprueba&&!e.borrada&&(ajAprob().autorAprueba||e.subidoPor!==u.id)}
+function votosDe(lista,version){var ult={};(lista||[]).forEach(function(a){if(a.version===version)ult[a.por]=a});return ult}
+function porAprobar(){return S.entregas.filter(function(e){return !e.borrada&&e.estado==="pendiente"&&puedoAprobar(e)&&!votosDe(e.aprobaciones,e.version)[S.session]}).sort(enOrden)}
+function cambiosMios(){return S.entregas.filter(function(e){return !e.borrada&&e.estado==="cambios"&&e.subidoPor===S.session}).sort(enOrden)}
+function gruposEntregas(){
+  if(!SRV)return "";
+  var p=porAprobar(),c=cambiosMios(),h="";
+  if(p.length)h+='<div class="group"><h3>Por aprobar <span class="muted small tnum">'+p.length+'</span></h3><div class="list">'+p.map(enRow).join("")+'</div></div>';
+  if(c.length)h+='<div class="group"><h3>Te pidieron cambios <span class="muted small tnum">'+c.length+'</span></h3><div class="list">'+c.map(enRow).join("")+'</div></div>';
+  return h;
+}
+function aprobPanel(e,v){
+  var aj=ajAprob(),actual=v.version===e.version,ult=votosDe(actual?e.aprobaciones:v.aprobaciones,v.version),votos=Object.keys(ult).map(function(k){return ult[k]});
+  var h='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Aprobación'+(actual?"":" de la versión "+v.version)+'</h3>';
+  h+=votos.length?'<div class="log">'+votos.map(function(a){return '<div><b>'+esc(uname(a.por))+'</b> '+(a.decision==="aprobada"?"aprobó":"pidió cambios")+(a.comentario?': «'+esc(a.comentario)+'»':"")+'<br><span class="muted small">'+ftime(a.en)+'</span></div>'}).join("")+'</div>':'<div class="muted small">Nadie ha decidido todavía.</div>';
+  if(!actual||e.borrada)return h+'</div>';
+  var eleg=S.users.filter(function(u){return u.aprueba&&(aj.autorAprueba||u.id!==e.subidoPor)});
+  if(aj.regla==="todos"){var faltan=eleg.filter(function(u){return !(ult[u.id]&&ult[u.id].decision==="aprobada")});if(faltan.length&&e.estado==="pendiente")h+='<div class="muted small">Deben aprobar todas las personas. Faltan: '+esc(faltan.map(function(u){return u.name}).join(", "))+'.</div>'}
+  else if(!votos.length)h+='<div class="muted small">Basta con que apruebe una persona: '+esc(eleg.map(function(u){return u.name}).join(", ")||"nadie tiene permiso todavía (se activa en Equipo)")+'.</div>';
+  if(puedoAprobar(e)){
+    var mio=ult[S.session];
+    h+=(mio?'<div class="muted small">Tu decisión: '+(mio.decision==="aprobada"?"la aprobaste":"pediste cambios")+'. Puedes cambiarla.</div>':"")+
+    '<div class="field"><label for="ap-com">Comentario (obligatorio para pedir cambios)</label><textarea id="ap-com" style="min-height:60px" maxlength="2000" placeholder="Qué hay que cambiar"></textarea></div><div class="actions"><button class="btn primary" data-act="enaprobar" data-id="'+e.id+'">Aprobar</button><button class="btn" data-act="encambios" data-id="'+e.id+'">Pedir cambios</button></div>';
+  }else if(me().aprueba&&e.subidoPor===S.session)h+='<div class="muted small">No puedes aprobar lo que tú subiste. Dirección puede cambiar esa regla en Ajustes.</div>';
+  return h+'</div>';
+}
+function decidirEn(id,decision){
+  var e=entById(id);if(!e)return;
+  var ce=document.getElementById("ap-com"),com=ce?ce.value.trim():"";
+  if(decision==="cambios"&&!com){toast("Escribe qué hay que cambiar");if(ce)ce.focus();return}
+  return api("entregas/decidir",{id:id,version:e.version,decision:decision,comentario:com}).then(function(){
+    var c2=document.getElementById("ap-com");if(c2){c2.value="";c2.defaultValue=""}
+    sincronizar();toast(decision==="aprobada"?"Aprobaste «"+e.nombre+"»":"Pediste cambios en «"+e.nombre+"». Le avisamos a "+uname(e.subidoPor));
+  }).catch(function(x){toast((x&&x.message)||"No se pudo guardar tu decisión")});
+}
+
+/* ---------- línea de tiempo ---------- */
+var GEN_F=[["todo","Todo"],["entregas","Entregas"],["tareas","Tareas"]];
+function diaDe(t){var d=new Date(t);d.setHours(12,0,0,0);var x=dayDiff(dstr(d));return x===0?"Hoy":x===-1?"Ayer":cap(d.toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long"}))}
+function horaDe(t){return new Date(t).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})}
+function actHtml(x){
+  var o=x.objeto||{},a=x.cuentaId?acc(x.cuentaId):null,abre=o.tipo==="entrega"&&entById(o.id)?"enopen":o.tipo==="task"&&taskById(o.id)?"open":"";
+  var txt='<b>'+esc(uname(x.por))+'</b> '+esc(x.verbo)+' «'+esc(o.titulo)+'»'+(a?' en <b>'+esc(shortName(a.name))+'</b>':"")+(x.detalle?'<span class="muted"> · '+esc(x.detalle)+'</span>':"");
+  var dentro=av(x.por)+'<span class="t">'+txt+'</span><span class="muted small tnum">'+horaDe(x.t)+'</span>';
+  return abre?'<button class="item act" data-act="'+abre+'" data-id="'+esc(o.id)+'">'+dentro+'</button>':'<div class="item act">'+dentro+'</div>';
+}
+function vGeneral(){
+  var g=S.gen,h='<div class="head"><div><h2>Área general</h2><div class="muted">Lo que pasa en el equipo: entregas, aprobaciones y tareas</div></div><div class="actions"><button class="btn primary" data-act="junta">'+ic("list")+' Pendientes de junta</button></div></div>';
+  h+=gruposEntregas();
+  var lista=S.actividad.filter(function(x){var t=x.objeto&&x.objeto.tipo;return g.f==="todo"||(g.f==="entregas"?t==="entrega":t!=="entrega")}).sort(function(a,b){return a.t<b.t?1:a.t>b.t?-1:0});
+  var tl='<div class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3 style="font-size:16px">Actividad del equipo</h3><div class="chips" role="tablist">'+GEN_F.map(function(f){return '<button role="tab" aria-selected="'+(g.f===f[0])+'" class="fchip'+(g.f===f[0]?" on":"")+'" data-act="genf" data-v="'+f[0]+'">'+f[1]+'</button>'}).join("")+'</div></div>';
+  if(!SRV)tl+='<div class="empty">La actividad del equipo aparece al usar la plataforma en línea.</div>';
+  else if(!lista.length)tl+='<div class="empty">Todavía no hay actividad. Aquí aparece cada entrega, aprobación y movimiento de tareas.</div>';
+  else{
+    var dia="";
+    lista.slice(0,g.lim).forEach(function(x){var d=diaDe(x.t);if(d!==dia){tl+=(dia?'</div>':"")+'<div class="group"><h3 class="muted small">'+esc(d)+'</h3>';dia=d}tl+=actHtml(x)});
+    tl+='</div>'+(lista.length>g.lim?'<button class="btn" data-act="genmas" style="align-self:flex-start">Ver más</button>':"");
+  }
+  tl+='</div>';
+  return h+'<div class="gen">'+tl+'<div style="display:flex;flex-direction:column;gap:6px"><h3 style="font-size:16px">Quién tiene qué</h3>'+vCarga({tasks:S.tasks,title:"todas las cuentas"})+'</div></div>';
+}
+
+/* ---------- Pendientes de junta: un mensaje como el de WhatsApp se vuelve tareas asignadas ---------- */
+function limpiaNombre(s){return s.replace(/^[@~\s]+/,"").replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}️‍]/gu,"").trim()}
+function buscaPersona(n){
+  var k=norm(n).replace(/\s+/g,"");if(!k)return null;
+  var u=mentionUser(k);if(u)return u;
+  var c=S.users.filter(function(x){var f=norm(x.name.split(" ")[0]);return x.id===k||f.indexOf(k)===0||k.indexOf(f)===0});
+  return c.length===1?c[0]:null;
+}
+function buscaCuenta(t){
+  var k=" "+norm(t).replace(/[^a-z0-9+]+/g," ")+" ",mejor=null;
+  S.accounts.forEach(function(a){var n=norm(a.name).replace(/[^a-z0-9+]+/g," ").trim();if(n&&k.indexOf(" "+n+" ")>-1&&(!mejor||n.length>norm(mejor.name).length))mejor=a});
+  return mejor;
+}
+function primeraLista(c){var L=S.lists.filter(function(l){return l.acc===c});return L.length?L[0].id:""}
+function parsearJunta(txt){
+  var secs=[],cur={quien:null,nombre:"",lineas:[]};secs.push(cur);
+  txt.split(/\r?\n/).forEach(function(l0){
+    var l=l0.replace(/[‎‏‪-‮]/g,"").trim();if(!l)return;
+    if(l.charAt(0)==="@"){
+      var i=l.search(/[:：]/),nom=limpiaNombre(i>-1?l.slice(0,i):l),resto=i>-1?l.slice(i+1).trim():"";
+      cur={quien:buscaPersona(nom),nombre:nom,lineas:[]};secs.push(cur);
+      if(resto)cur.lineas.push({t:resto,v:true});
+      return;
+    }
+    var b=/^([•·\-–*]|\d+[.)])\s*/.exec(l);
+    cur.lineas.push({t:b?l.slice(b[0].length).trim():l,v:!!b});
+  });
+  var filas=[];
+  secs.forEach(function(s){
+    // Si la sección trae viñetas, solo cuentan las viñetas (así se ignoran saludos y despedidas).
+    var conV=s.lineas.some(function(x){return x.v});
+    s.lineas.filter(function(x){return conV?x.v:!!s.nombre}).forEach(function(x){
+      if(!x.t)return;var c=buscaCuenta(x.t);
+      filas.push({x:true,titulo:x.t.slice(0,200),persona:s.quien?s.quien.id:"",cuenta:c?c.id:"",lista:c?primeraLista(c.id):"",nota:s.nombre&&!s.quien?"No encontré a «"+s.nombre+"» en el equipo. Elige a la persona o déjalo sin asignar.":""});
+    });
+  });
+  return filas;
+}
+function guardarJunta(){
+  var m=S.modal;if(!m||m.kind!=="junta"||m.paso!=="revisar")return;
+  var fe=document.getElementById("jt-fecha");if(fe&&fe.value)m.fecha=fe.value;
+  m.filas.forEach(function(f,i){
+    var x=document.getElementById("jt-x-"+i),t=document.getElementById("jt-t-"+i),p=document.getElementById("jt-p-"+i),c=document.getElementById("jt-c-"+i),l=document.getElementById("jt-l-"+i);
+    if(x)f.x=x.checked;if(t){f.titulo=t.value;t.defaultValue=t.value}if(p)f.persona=p.value;
+    if(c&&c.value!==f.cuenta){f.cuenta=c.value;f.lista=primeraLista(c.value)}else if(l)f.lista=l.value;
+  });
+}
+function juntaModal(m){
+  var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Pendientes de junta</h2><button class="btn" data-act="close">Cerrar</button></div>';
+  if(m.paso!=="revisar")return h+'<form id="juntaForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><p class="muted small" style="margin:0">Pega el mensaje con los pendientes de la junta, tal cual lo mandarían por WhatsApp: una línea con <b>@Nombre:</b> y debajo sus pendientes con viñetas (•, -). Cada pendiente se vuelve una tarea asignada y a cada quien le llega el aviso en su Bandeja.</p><div class="field"><label for="jt-texto">Pendientes</label><textarea id="jt-texto" style="min-height:240px" placeholder="@Dani:&#10;• Plan de mejoras para el calendario de Brizna&#10;&#10;@Rodrigo:&#10;• Publicar el sistema de tareas">'+esc(m.texto||"")+'</textarea></div><button class="btn primary" type="submit" style="align-self:flex-start">Revisar</button></form>';
+  var cuentas=S.accounts.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")}),n=m.filas.filter(function(f){return f.x}).length;
+  h+='<form id="juntaForm2" class="panel" style="display:flex;flex-direction:column;gap:12px"><p class="muted small" style="margin:0">Revisa a quién le toca cada pendiente. Con cuenta se crea una tarea en la lista elegida; sin cuenta va a la Agenda de la persona como tarea personal.</p><div class="field" style="max-width:240px"><label for="jt-fecha">Fecha límite</label><input id="jt-fecha" type="date" value="'+esc(m.fecha)+'"></div>';
+  m.filas.forEach(function(f,i){
+    var Ls=f.cuenta?S.lists.filter(function(l){return l.acc===f.cuenta}):[];
+    h+='<div class="sbf'+(f.x?"":" off")+'"><label class="chk small" for="jt-x-'+i+'"><input type="checkbox" id="jt-x-'+i+'" data-f="jt"'+(f.x?" checked":"")+'> Crear este pendiente</label>'+
+      '<div class="field"><label for="jt-t-'+i+'">Pendiente</label><input id="jt-t-'+i+'" value="'+esc(f.titulo)+'" maxlength="200"></div>'+
+      '<div class="two"><div class="field"><label for="jt-p-'+i+'">Para</label><select id="jt-p-'+i+'" data-f="jt"><option value="">Sin asignar</option>'+S.users.map(function(u){return '<option value="'+u.id+'"'+(u.id===f.persona?" selected":"")+'>'+esc(u.name)+'</option>'}).join("")+'</select></div>'+
+      '<div class="field"><label for="jt-c-'+i+'">Cuenta</label><select id="jt-c-'+i+'" data-f="jt"><option value="">Ninguna (a su Agenda)</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===f.cuenta?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div></div>'+
+      (f.cuenta&&Ls.length>1?'<div class="field"><label for="jt-l-'+i+'">Lista</label><select id="jt-l-'+i+'" data-f="jt">'+Ls.map(function(l){return '<option value="'+l.id+'"'+(l.id===f.lista?" selected":"")+'>'+esc(l.name)+'</option>'}).join("")+'</select></div>':"")+
+      (f.nota?'<div class="small" style="color:var(--warn);font-weight:600">'+esc(f.nota)+'</div>':"")+'</div>';
+  });
+  return h+'<div class="actions"><button class="btn" type="button" data-act="jtatras">Editar el texto</button><button class="btn primary" type="submit"'+(n?"":" disabled")+'>Crear '+n+(n===1?" pendiente":" pendientes")+'</button></div></form>';
+}
+function crearJunta(){
+  guardarJunta();
+  var m=S.modal,sel=m.filas.filter(function(f){return f.x&&f.titulo.trim()});
+  if(!sel.length)return toast("No hay pendientes marcados");
+  var fecha=m.fecha||iso(7),cuenta={};
+  sel.forEach(function(f){
+    var t=f.titulo.trim();
+    if(f.cuenta&&acc(f.cuenta)){
+      var L=listById(f.lista)||listFor(f.cuenta,"redes");
+      var nt=createTask({list:L.id,title:t,date:fecha,assignees:f.persona?[f.persona]:[],via:"pendientes de junta"});
+      if(f.persona&&f.persona!==S.session)notify(f.persona,"Te asignaron «"+t+"» (pendiente de junta)",nt.id);
+    }else{
+      S.agenda.push({id:"a"+nid(),kind:"tarea",title:t,date:fecha,time:"",owner:f.persona||S.session,acc:"",notes:"Pendiente de junta",done:false});
+      if(f.persona&&f.persona!==S.session)notify(f.persona,"Tienes un pendiente de la junta en tu Agenda: «"+t+"»","");
+    }
+    var k=f.persona?uname(f.persona):"sin asignar";cuenta[k]=(cuenta[k]||0)+1;
+  });
+  if(SRV)S.actividad.push({id:"act"+nid(),t:nowIso(),por:S.session,verbo:"repartió",objeto:{tipo:"junta",id:"j"+nid(),titulo:"Pendientes de junta"},detalle:sel.length+(sel.length===1?" pendiente: ":" pendientes: ")+Object.keys(cuenta).map(function(k){return k+" ("+cuenta[k]+")"}).join(", ")});
+  S.modal=null;save();
+  toast(sel.length+(sel.length===1?" pendiente repartido":" pendientes repartidos")+". Cada quien lo ve en su Bandeja.");
+}
+
+function ajAprobPanel(){
+  var a=ajAprob(),adm=isAdmin(),dis=adm?"":" disabled",ap=S.users.filter(function(u){return u.aprueba});
+  return '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Aprobación de entregas</h3><span class="pill st-redaccion">Provisional: falta que Dirección lo decida</span></div>'+
+  '<fieldset class="opts"'+dis+'><legend class="small muted">¿Cuántas aprobaciones necesita una entrega?</legend><label class="chk small"><input type="radio" name="aj-regla" value="uno" data-f="ajregla"'+(a.regla==="uno"?" checked":"")+'> Basta con una persona</label><label class="chk small"><input type="radio" name="aj-regla" value="todos" data-f="ajregla"'+(a.regla==="todos"?" checked":"")+'> Deben aprobar todas las personas que aprueban</label></fieldset>'+
+  '<label class="chk small"><input type="checkbox" data-f="ajautor"'+(a.autorAprueba?" checked":"")+dis+'> Quien sube una entrega también puede aprobarla</label>'+
+  '<p class="muted small" style="margin:0">Aprueban: '+(ap.length?esc(ap.map(function(u){return u.name}).join(", ")):"nadie todavía")+'. Se cambia en Equipo con «Aprueba entregas».'+(adm?"":" Solo Dirección cambia estos ajustes.")+' Los cambios aplican a las siguientes decisiones.</p></div>';
 }
 
 /* ---------- Modales ---------- */
@@ -1632,6 +1817,7 @@ function modal(){
   else if(m.kind==="entrega")h+=entregaModal(m);
   else if(m.kind==="subir")h+=subirModal(m);
   else if(m.kind==="purgar")h+=purgarModal(m);
+  else if(m.kind==="junta")h+=juntaModal(m);
   return h+'</div></div>';
 }
 function taskModal(t){
@@ -1757,7 +1943,7 @@ function act(a,el){
   case"setwho":
     if(!canEdit(t)){S.pop=null;return deny()}
     var uid=el.getAttribute("data-k"),ix=t.assignees.indexOf(uid);
-    if(ix>-1){t.assignees.splice(ix,1);logT(t,"Quitó a "+uname(uid))}else{t.assignees.push(uid);logT(t,"Asignó a "+uname(uid));notify(uid,"Te asignaron «"+t.title+"»",t.id)}
+    if(ix>-1){t.assignees.splice(ix,1);logT(t,"Quitó a "+uname(uid))}else{t.assignees.push(uid);logT(t,"Asignó a "+uname(uid));notify(uid,"Te asignaron «"+t.title+"»",t.id);registrarAct("asignó",t,"a "+uname(uid))}
     save();return render();
   case"goback":return tryStatus(t,el.getAttribute("data-k"));
   case"copycopy":
@@ -1773,7 +1959,8 @@ function act(a,el){
   case"comment":
     var tx=val("c-new").trim();if(!tx)return;
     t.com.push({u:S.session,t:nowIso(),x:tx});var cn=document.getElementById("c-new");if(cn)cn.value="";
-    mentionIds(tx).forEach(function(i){notify(i,uname(S.session)+" te mencionó en «"+t.title+"»",t.id)});
+    var resumen=tx.replace(/\s+/g," ").trim();if(resumen.length>140)resumen=resumen.slice(0,139)+"…";
+    mentionIds(tx).forEach(function(i){notify(i,uname(S.session)+" te mencionó en «"+t.title+"»: "+resumen,t.id)});
     logT(t,"Publicó una actualización");save();return toast("Actualización publicada");
   case"mention":var ta=document.getElementById("c-new");if(ta){ta.value+=(ta.value&&!/\s$/.test(ta.value)?" ":"")+"@"+el.getAttribute("data-n")+" ";ta.focus()}return;
   case"deltask":if(!arm("deltask"+id))return;S.tasks=S.tasks.filter(function(z){return z.id!==id});S.modal=null;save();return toast("Tarea eliminada");
@@ -1787,7 +1974,7 @@ function act(a,el){
   case"stadd":collectStat();var ty=scope().type,arr=S.stat[ty];arr.splice(arr.length-1,0,{k:"x"+nid(),n:"Nuevo estado",c:"gray"});return render();
   case"stdel":collectStat();var ty2=scope().type,rm=S.stat[ty2].splice(+el.getAttribute("data-i"),1)[0];S.autos=S.autos.filter(function(z){return !(z.type===ty2&&z.trig.k==="status"&&z.trig.v===rm.k)});return render();
   case"readall":S.inbox.forEach(function(i){if(i.to===S.session)i.read=true});save();return render();
-  case"inbopen":var it=S.inbox.find(function(z){return z.id===id});if(it){it.read=true;save();if(it.task&&taskById(it.task))S.modal={kind:"task",id:it.task}}return render();
+  case"inbopen":var it=S.inbox.find(function(z){return z.id===id});if(it){it.read=true;save();if(it.task&&taskById(it.task))S.modal={kind:"task",id:it.task};else if(it.entrega&&entById(it.entrega))S.modal={kind:"entrega",id:it.entrega}}return render();
   case"inbtab":S.inbTab=el.getAttribute("data-v");return render();
   case"autotog":var au=S.autos.find(function(z){return z.id===id});if(au&&isAdmin()){au.on=!au.on;save()}return render();
   case"autodel":if(!isAdmin())return;if(!arm("autodel"+id))return;S.autos=S.autos.filter(function(z){return z.id!==id});save();return toast("Automatización quitada");
@@ -1834,6 +2021,12 @@ function act(a,el){
   case"drlink":var df=(S.dr.items||[]).find(function(z){return z.id===id});if(!df)return;S.modal={kind:"drlink",file:{id:df.id,title:df.title,url:safeUrl(df.viewUrl)}};return render();
   case"dldo":var dp=taskById(val("dl-task"));if(!dp)return;dp.files=dp.files||[];if(dp.files.some(function(z){return z.id===S.modal.file.id})){S.modal=null;return toast("Ese archivo ya estaba vinculado")}dp.files.push(S.modal.file);logT(dp,"Vinculó el archivo de Drive «"+S.modal.file.title+"»");S.modal=null;save();return toast("Archivo vinculado a la tarea");
   case"drunlink":t.files.splice(+el.getAttribute("data-j"),1);logT(t,"Quitó un archivo de Drive");save();return render();
+  case"junta":S.modal={kind:"junta",paso:"texto",texto:"",filas:[],fecha:iso(7)};S.pop=null;return render();
+  case"jtatras":guardarJunta();S.modal.paso="texto";return render();
+  case"genf":S.gen.f=el.getAttribute("data-v");S.gen.lim=40;return render();
+  case"genmas":S.gen.lim+=40;return render();
+  case"enaprobar":return decidirEn(id,"aprobada");
+  case"encambios":return decidirEn(id,"cambios");
   case"ennav":S.view="entregas";S.modal=null;S.pop=null;S.en.papelera=false;if(el.hasAttribute("data-c")){S.en.cuenta=el.getAttribute("data-c");S.en.lista=""}if(el.hasAttribute("data-l"))S.en.lista=el.getAttribute("data-l");S.toTop=true;return render();
   case"enpap":S.en.papelera=true;S.toTop=true;return render();
   case"enclear":S.en.q="";S.en.estado="";S.en.persona="";S.en.tipo="";return render();
@@ -1872,6 +2065,8 @@ document.addEventListener("change",function(e){
   else if(f==="qgroup"){S.q.group=el.value;render()}
   else if(f==="kbAcc"){S.kf.acc=el.value;render()}
   else if(f==="enestado"){S.en.estado=el.value;render()}
+  else if(f==="jt"){guardarJunta();render()}
+  else if(f==="ajregla"||f==="ajautor"){if(!isAdmin())return render();var aj0=ajAprob();if(f==="ajregla")aj0.regla=el.value;else aj0.autorAprueba=!!el.checked;S.ajustes.aprobacion=aj0;save();render();toast("Ajuste de aprobación guardado")}
   else if(f==="enpersona"){S.en.persona=el.value;render()}
   else if(f==="entipo"){S.en.tipo=el.value;render()}
   else if(f==="sbfile"){guardarNombres();abrirSubir([].slice.call(el.files||[]))}
@@ -1916,7 +2111,7 @@ function handleSubmit(form){
       if(pw!==pw2){S.err="Las dos contraseñas no coinciden.";S.errField="p";S.lu=typed;render();var fb=document.getElementById("lp2");if(fb)fb.focus();return}
       u.pass=pw;S.crear=null;save();
     }else if(!SRV&&u.pass!==pw){S.err="La contraseña es incorrecta. Vuelve a intentarlo.";S.errField="p";S.lu=typed;render();var f2=document.getElementById("lp");if(f2)f2.focus();return}
-    S.err="";S.errField="";S.lu="";S.session=u.id;try{sessionStorage.setItem(KEY+"-u",u.id)}catch(x){}applyPref();S.view="dia";S.toTop=true;runDue();render();
+    S.err="";S.errField="";S.lu="";S.session=u.id;try{sessionStorage.setItem(KEY+"-u",u.id)}catch(x){}applyPref();S.view="general";S.toTop=true;runDue();render();
   }else if(id==="addUser"){
     var uid=val("nu-u").trim().toLowerCase(),er=document.getElementById("nuerr");
     if(!/^[a-z0-9._-]+$/.test(uid)){er.textContent="El usuario solo puede llevar letras sin acentos, números, punto, guion y guion bajo.";return}
@@ -1933,6 +2128,12 @@ function handleSubmit(form){
     var rec={kind:val("ag-kind"),title:val("ag-title").trim(),date:val("ag-date"),time:val("ag-time"),owner:u0.role==="admin"?val("ag-owner"):(ex?ex.owner:u0.id),acc:val("ag-acc"),notes:val("ag-notes")};
     if(ex){Object.keys(rec).forEach(function(q){ex[q]=rec[q]})}else{rec.id="a"+nid();rec.done=false;S.agenda.push(rec)}
     S.agDay=rec.date;S.agMonth=rec.date.slice(0,7);S.modal=null;save();toast(ex?"Cambios guardados":"Agregado a la agenda");
+  }else if(id==="juntaForm"){
+    var jtx=val("jt-texto"),jfl=parsearJunta(jtx);
+    if(!jfl.length)return toast("No encontré pendientes. Escribe @Nombre: y debajo un pendiente por línea con viñeta (•, -)");
+    S.modal.texto=jtx;S.modal.filas=jfl;S.modal.paso="revisar";render();
+  }else if(id==="juntaForm2"){
+    crearJunta();
   }else if(id==="subirForm"){
     var sm=S.modal;guardarNombres();
     var buenos=sm.files.filter(function(f){return !revisarArchivo(f)}),malos=sm.files.length-buenos.length;
@@ -2126,6 +2327,7 @@ function aplanar(){
   Object.keys(S.seen||{}).forEach(function(k){p("seen",k,{v:S.seen[k]})});
   Object.keys(S.prefs||{}).forEach(function(k){p("pref",k,S.prefs[k])});
   Object.keys(S.boards||{}).forEach(function(k){p("board",k,S.boards[k])});
+  Object.keys(S.ajustes||{}).forEach(function(k){p("ajuste",k,S.ajustes[k])});
   return m;
 }
 function buscar(tipo,id){
@@ -2142,6 +2344,7 @@ function localComo(tipo,id){
   if(tipo==="seen")return S.seen[id]!==undefined?{v:S.seen[id]}:undefined;
   if(tipo==="pref")return S.prefs[id]?cl(S.prefs[id]):undefined;
   if(tipo==="board")return S.boards[id]?cl(S.boards[id]):undefined;
+  if(tipo==="ajuste")return S.ajustes[id]?cl(S.ajustes[id]):undefined;
   return undefined;
 }
 function poner(tipo,id,d){
@@ -2153,6 +2356,7 @@ function poner(tipo,id,d){
   else if(tipo==="seen")S.seen[id]=d.v;
   else if(tipo==="pref")S.prefs[id]=d;
   else if(tipo==="board")S.boards[id]=d;
+  else if(tipo==="ajuste")S.ajustes[id]=d;
 }
 function quitar(tipo,id){
   var a=TIPOS_ARR[tipo];
@@ -2161,6 +2365,7 @@ function quitar(tipo,id){
   if(tipo==="seen")delete S.seen[id];
   else if(tipo==="pref")delete S.prefs[id];
   else if(tipo==="board")delete S.boards[id];
+  else if(tipo==="ajuste")delete S.ajustes[id];
 }
 function ordenar(){
   function porCreado(tipo){return function(a,b){var x=CREADO[tipo+"|"+a.id],y=CREADO[tipo+"|"+b.id];return(x===undefined?1e15:x)-(y===undefined?1e15:y)}}
@@ -2183,7 +2388,7 @@ function aplicar(e,instantanea,enviados){
 }
 
 function construir(entidades){
-  S={users:[],accounts:[],lists:[],tasks:[],cals:[],agenda:[],kanban:{cols:[],notes:[]},autos:[],stat:cl(STAT0),inbox:[],seen:{},prefs:{},boards:{},entregas:[],actividad:[],seq:0,session:null};
+  S={users:[],accounts:[],lists:[],tasks:[],cals:[],agenda:[],kanban:{cols:[],notes:[]},autos:[],stat:cl(STAT0),inbox:[],seen:{},prefs:{},boards:{},entregas:[],actividad:[],ajustes:{},seq:0,session:null};
   BASEO={};BASEJ={};CREADO={};ORDEN={};
   entidades.forEach(function(e){aplicar(e)});
   ordenar();ui();
