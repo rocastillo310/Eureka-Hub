@@ -103,6 +103,17 @@ Se suben desde la vista **Entregas** (o arrastrando archivos a cualquier pantall
 - **Avisos en la Bandeja:** a quienes aprueban cuando llega una entrega o una versión; a quien la subió cuando le piden cambios o queda aprobada; a cada quien por sus pendientes de junta.
 - **Pendientes de junta:** se pega el mensaje de la junta (`@Nombre:` y pendientes con viñetas). Cada pendiente se vuelve tarea asignada en la cuenta que se menciona, o tarea personal en la Agenda si no hay cuenta.
 
+## Contactos (F4)
+
+- Vista **Contactos**: la base de datos de clientes (nombre, cargo, correo, teléfono y notas, por cuenta). Búsqueda en todas las cuentas, filtro por cuenta, y en cada cuenta su lista de contactos. Correo y WhatsApp con un toque.
+- **Permisos:** cualquiera del equipo agrega y edita; borrar lo hace Dirección o quien lo agregó. El servidor valida los campos (`src/contactos.js`) y pone quién y cuándo lo creó.
+- **CSV:** exportar (lo que se ve con el filtro) e importar. Columnas: `Cuenta, Nombre, Cargo, Correo, Teléfono, Notas`; solo «Nombre» es obligatorio. Acepta coma, punto y coma o tabulador (Excel en español usa punto y coma). Antes de importar muestra qué se crea, qué se actualiza (mismo correo, o mismo nombre sin correo, en esa cuenta) y qué filas tienen error; nunca borra ni crea cuentas. Al exportar, un dato que empiece con `=`, `@` u otro carácter de fórmula sale con un apóstrofo para que Excel no lo ejecute.
+- Son datos personales de clientes: viven solo en D1. Nunca se commitean ni se pegan en el chat.
+
+## Tema
+
+Ajustes → **Apariencia**: claro, oscuro o «como el sistema». Se guarda por persona y se aplica antes de pintar la pantalla.
+
 ## Desplegar
 
 Si hay migraciones nuevas en `migrations/`, primero se aplican a la base de producción:
@@ -135,6 +146,6 @@ docs/prototipo/ prototipo original de referencia (fuera de git)
 | F1 | `/api/yo`, `bootstrap`, `sync`, `merge3`, migraciones, equipo | hecho |
 | F2 | Entregas con R2 | hecho (falta la prueba con un video real en producción) |
 | F3 | Área general, aprobaciones, inbox (y pendientes de junta) | hecho |
-| F4 | Contactos y base de datos | pendiente |
+| F4 | Contactos y base de datos (y tema claro u oscuro) | hecho |
 | F5 | Respaldo y restauración | pendiente |
 | F6 | Endurecimiento y README de operación | pendiente |

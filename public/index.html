@@ -1,5 +1,6 @@
 <!doctype html><html lang="es-MX"><head><meta charset="utf-8"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Centro Eureka Hub</title>
+<script>try{var t=localStorage.getItem("eureka-hub-proto-v3-tema");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
 <style>
@@ -367,6 +368,11 @@ input.plain{border:1px solid var(--line);border-radius:8px;padding:8px 10px;back
 .mref figcaption .btn{margin-left:auto}
 .mlink{display:flex;flex-direction:column;gap:2px;padding:12px;font-weight:600;color:var(--accent);overflow-wrap:anywhere;text-decoration:none}
 .mlink:hover{text-decoration:underline}
+/* contactos */
+.item.ctrow{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.ctrow .t{justify-content:flex-start;text-align:left;padding:0;min-height:0;font-weight:600;border:0;overflow-wrap:anywhere}
+.ctrow .meta a{color:inherit}
+label.btn{display:inline-flex;align-items:center;cursor:pointer}
 /* área general */
 .gen{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:14px;align-items:start}
 @media (max-width:980px){.gen{grid-template-columns:1fr}}
@@ -376,7 +382,7 @@ div.item.act{cursor:default}div.item.act:hover{border-color:var(--line)}
 fieldset.opts{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
 .sbf.off{opacity:.55}
 /* entregas */
-a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px;color:inherit}a.btn.primary{color:var(--accent-ink)}
 .dropzone{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;text-align:center;border:2px dashed var(--line);border-radius:12px;padding:18px;color:var(--muted);cursor:pointer;background:var(--surface);width:100%;font:inherit}
 .dropzone:hover,.dropzone:focus-within,body.arrastrando .dropzone{border-color:var(--accent);color:var(--accent)}
 body.arrastrando main{outline:3px dashed var(--accent);outline-offset:-6px}
@@ -434,6 +440,7 @@ var ICONS={
  chev:'<path d="M9 6l6 6-6 6"/>',
  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
+ contact:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17c.6-1.8 2-2.7 3.5-2.7s2.9.9 3.5 2.7M15 9h4M15 13h3"/>',
  pulse:'<path d="M3 12h4l3 8 4-16 3 8h4"/>',
  upload:'<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/>',
  sliders:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'
@@ -463,10 +470,10 @@ function seed(){
   ];
   return {users:[{id:"rodrigo",name:"Rodrigo",role:"admin",pass:"",hue:0,cap:6}],accounts:[],lists:[],tasks:[],cals:[],agenda:[],
     kanban:{cols:[{id:"k1",name:"Backlog",limit:0,tone:"pro"},{id:"k2",name:"Por iniciar",limit:0,tone:"cli"},{id:"k3",name:"En curso",limit:3,tone:"red"},{id:"k4",name:"Hecho",limit:0,tone:"pub"}],notes:[]},
-    autos:autos,stat:JSON.parse(JSON.stringify(STAT0)),inbox:[],boards:{},entregas:[],actividad:[],ajustes:{},seq:300};
+    autos:autos,stat:JSON.parse(JSON.stringify(STAT0)),inbox:[],boards:{},entregas:[],actividad:[],ajustes:{},contactos:[],seq:300};
 }
 function ui(){
-  S.seen=S.seen||{};S.moreCols=false;S.armed=null;S.inbTab="todo";S.view="general";S.gen={f:"todo",lim:40};S.vw="tablero";S.listId="";
+  S.seen=S.seen||{};S.moreCols=false;S.armed=null;S.inbTab="todo";S.view="general";S.gen={f:"todo",lim:40};S.ct={q:"",cuenta:""};S.vw="tablero";S.listId="";
   S.q={text:"",who:"",preset:"",group:"estado",hideDone:false,type:"redes",acc:""};
   S.col={};S.exp={};S.open={};S.pop=null;S.modal=null;S.toast="";S.err="";
   S.calMonth=iso(0).slice(0,7);S.kf={acc:"",mine:false};S.agDay=iso(0);S.agMonth=iso(0).slice(0,7);S.agWho="yo";S.agMode="tareas";S.pubAcc="";
@@ -480,12 +487,12 @@ function load(){
   var d=null;try{d=JSON.parse(localStorage.getItem(KEY))}catch(e){}
   S=d&&d.tasks&&d.lists&&d.users?d:seed();
   if(!S.prefs)S.prefs={};if(!S.boards)S.boards={};if(!S.inbox)S.inbox=[];if(!S.seen)S.seen={};if(!S.autos)S.autos=seed().autos;if(!S.stat)S.stat=JSON.parse(JSON.stringify(STAT0));
-  S.entregas=[];S.actividad=[];if(!S.ajustes)S.ajustes={}; // entregas y actividad solo existen con servidor
+  S.entregas=[];S.actividad=[];S.contactos=[];if(!S.ajustes)S.ajustes={}; // entregas y actividad solo existen con servidor
   S.session=null;ui();
   try{var u=sessionStorage.getItem(KEY+"-u");if(u&&S.users.some(function(x){return x.id===u}))S.session=u}catch(e){}
   applyPref();
 }
-function applyPref(){var p=S.prefs&&S.prefs[S.session];S.vw=(p&&p.vw)||"tablero"}
+function applyPref(){var p=S.prefs&&S.prefs[S.session];S.vw=(p&&p.vw)||"tablero";if(S.session)aplicarTema(temaActual())}
 function save(){if(SRV)return programarSync();try{localStorage.setItem(KEY,JSON.stringify({users:S.users,accounts:S.accounts,lists:S.lists,tasks:S.tasks,cals:S.cals,agenda:S.agenda,kanban:S.kanban,autos:S.autos,stat:S.stat,inbox:S.inbox,seen:S.seen,prefs:S.prefs,boards:S.boards,seq:S.seq}));return true}catch(e){return false}}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function user(id){return S.users.find(function(u){return u.id===id})}
@@ -733,7 +740,7 @@ function tree(){
 function shell(){
   var u=me(),h='<div class="shell"><aside class="side"><div class="brand"><i></i> Eureka Hub</div><nav class="nav" aria-label="Principal">'+
   navBtn("general","Área general","pulse")+navBtn("dia","Mi día","home")+navBtn("entregas","Entregas","upload")+navBtn("bandeja","Bandeja","inbox",unread())+navBtn("agenda","Agenda","calendar")+navBtn("panel","Panel","panel")+
-  '<div class="navlbl">Espacios</div>'+navBtn("spaces","Cuentas","folder")+tree()+
+  '<div class="navlbl">Espacios</div>'+navBtn("spaces","Cuentas","folder")+tree()+navBtn("contactos","Contactos","contact")+
   '<div class="navlbl">Herramientas</div>'+navBtn("cals","Calendarios","check",pendCals()||"","sec")+navBtn("auto","Automatizaciones","bolt",0,"sec")+navBtn("pizarra","Pizarra Kanban","note",0,"sec")+navBtn("drive","Drive","drive",0,"sec")+navBtn("equipo","Equipo","users",0,"sec")+navBtn("ajustes","Ajustes","sliders",0,"sec")+navBtn("guia","Guía","book",0,"sec")+
   '<button data-act="menu" class="moreNav'+(SEC.indexOf(S.view)>-1?" on":"")+'"><span class="row" style="gap:8px">'+ic("grid")+'<span>Más</span></span></button>'+
   '</nav><div class="me"><div class="row"><span class="avatar" style="background:'+avColor(u)+';color:#fff">'+esc(u.name[0])+'</span><span class="who"><b>'+esc(u.name)+'</b><div class="muted small">'+esc(rolNombre(u.role))+'</div></span></div><button class="btn small" data-act="logout">Salir</button></div></aside><main>';
@@ -748,7 +755,7 @@ function shell(){
 }
 function view(){
   switch(S.view){
-    case"general":return vGeneral();case"dia":return vDia();case"bandeja":return vBandeja();case"agenda":return vAgenda();case"panel":return vPanel();
+    case"general":return vGeneral();case"contactos":return vContactos();case"dia":return vDia();case"bandeja":return vBandeja();case"agenda":return vAgenda();case"panel":return vPanel();
     case"spaces":return vSpaces();case"space":return vSpace();case"list":return vList();
     case"cals":return vCals();case"auto":return vAuto();case"pizarra":return vKanban();case"drive":return vDrive();case"equipo":return vEquipo();case"guia":return vGuia();
     case"entregas":return vEntregas();case"ajustes":return vAjustes();
@@ -886,6 +893,7 @@ function vSpace(){
   h+='<div class="group"><h3>Listas</h3><div class="grid">'+S.lists.filter(function(l){return l.acc===a.id}).map(function(l){
     var lt=S.tasks.filter(function(t){return t.list===l.id}),dn=lt.filter(isFinal).length,pc=lt.length?Math.round(dn/lt.length*100):0;
     return '<button class="panel item" style="grid-template-columns:1fr" data-act="list" data-id="'+l.id+'"><span class="row" style="justify-content:space-between"><b>'+esc(l.name)+'</b><span class="muted small">'+TYPES[l.type]+'</span></span><span class="bar"><i style="width:'+pc+'%"></i></span><span class="muted small tnum">'+dn+' de '+lt.length+' terminadas · '+pc+'%</span></button>'}).join("")+'</div></div>';
+  h+=ctCuentaPanel(a);
   h+=spacePubCal(a)+brandBoard(a);
   var cs=S.cals.filter(function(c){return c.acc===a.id});
   if(cs.length)h+='<div class="group"><h3>Calendarios de contenido</h3><div class="list">'+cs.map(calItem).join("")+'</div></div>';
@@ -1238,6 +1246,8 @@ function vGuia(){
   '<h3>Alertas</h3><ul><li><b>En riesgo:</b> faltan 2 días o menos y la tarea aún no está en una etapa final o programada.</li><li><b>Atrasada:</b> pasó la fecha y no está terminada.</li></ul>'+
   '<h3>Bandeja, Mi día y Panel</h3><p>Bandeja junta los avisos. Mi día muestra tus tareas por urgencia. Panel resume todas las cuentas.</p>'+
   '<h3>Pizarra Kanban y Agenda</h3><p>La pizarra son notas libres con columnas y límites; una nota se puede convertir en tarea. La Agenda junta actividades, tareas personales y las fechas de entrega de tus tareas. En su pestaña «Publicaciones» ves solo lo que se publica cada día en redes, de todas las cuentas o de una.</p>'+
+  '<h3>Contactos</h3><p>La base de datos de clientes: nombre, cargo, correo, teléfono y notas de cada persona con la que tratamos, por cuenta. Busca en todas las cuentas a la vez, abre su correo o su WhatsApp con un toque, e importa o exporta la lista en CSV (Excel o Google Sheets). Cualquiera agrega y edita; borrar lo hace Dirección o quien lo agregó.</p>'+
+  '<h3>Tema claro u oscuro</h3><p>En Ajustes → Apariencia eliges claro, oscuro o «como el sistema» (sigue el modo de tu computadora o teléfono). Se guarda para tu cuenta.</p>'+
   '<h3>Área general</h3><p>Es la pantalla de inicio. Muestra lo que pasa en el equipo: quién entregó, aprobó o pidió cambios, y qué tareas se crearon, movieron o asignaron. A la derecha, «Quién tiene qué» cuenta las tareas abiertas de cada persona. Con «Pendientes de junta» pegas el mensaje de la junta (como el de WhatsApp: @Nombre: y sus pendientes con viñetas) y se vuelven tareas asignadas con aviso a cada quien.</p>'+
   '<h3>Aprobación de entregas</h3><p>Quien tiene «Aprueba entregas» en Equipo recibe un aviso cuando llega una entrega o una versión nueva. Abre la entrega, revísala y elige «Aprobar» o «Pedir cambios» (con comentario). Los cambios regresan la entrega a quien la subió, con aviso en su Bandeja. Cuántas aprobaciones hacen falta se configura en Ajustes.</p>'+
   '<h3>Entregas</h3><p>Aquí se sube todo lo que se entrega: video, imágenes, PDF, documentos y archivos de diseño. Se ordena por cuenta y luego por lista. Arrastra los archivos a la pantalla o usa «Subir»; si se corta el internet, «Reintentar» sigue donde se quedó. Para corregir algo, abre la entrega y sube una versión nueva: las anteriores se conservan. Borrar manda a la papelera; borrar para siempre lo hace Dirección o quien creó la entrega, y pide confirmación.</p>'+
@@ -1617,7 +1627,8 @@ function enAccion(ruta,cuerpo,ok){return api("entregas/"+ruta,cuerpo).then(funct
 /* ---------- Ajustes ---------- */
 function vAjustes(){
   var h='<div class="head"><div><h2>Ajustes</h2><div class="muted">Configuración y uso de la plataforma</div></div></div>';
-  if(!SRV)return h+'<div class="empty">Los ajustes aparecen al usar la plataforma en línea.</div>';
+  h+=temaPanel();
+  if(!SRV)return h+'<div class="empty">Los demás ajustes aparecen al usar la plataforma en línea.</div>';
   cargarCfg();
   h+=ajAprobPanel();
   var u=usoBytes(),pct=Math.min(100,u.total/GRATIS_BYTES*100),alto=pct>=80,porCuenta={};
@@ -1795,6 +1806,184 @@ function ajAprobPanel(){
   '<p class="muted small" style="margin:0">Aprueban: '+(ap.length?esc(ap.map(function(u){return u.name}).join(", ")):"nadie todavía")+'. Se cambia en Equipo con «Aprueba entregas».'+(adm?"":" Solo Dirección cambia estos ajustes.")+' Los cambios aplican a las siguientes decisiones.</p></div>';
 }
 
+/* ---------- Tema: claro, oscuro o el del sistema (por persona) ---------- */
+var TEMAS=[["","Como el sistema"],["light","Claro"],["dark","Oscuro"]];
+function temaActual(){var p=S&&S.session&&S.prefs&&S.prefs[S.session];return p&&(p.tema==="light"||p.tema==="dark")?p.tema:""}
+function aplicarTema(t){
+  var r=document.documentElement;
+  if(t==="light"||t==="dark")r.setAttribute("data-theme",t);else r.removeAttribute("data-theme");
+  try{localStorage.setItem(KEY+"-tema",t||"")}catch(e){} // para pintar el tema correcto antes de cargar
+}
+function temaPanel(){
+  var t=temaActual();
+  return '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Apariencia</h3><fieldset class="opts"><legend class="small muted">Tema de la pantalla (solo para ti)</legend>'+TEMAS.map(function(x){return '<label class="chk small"><input type="radio" name="tema" value="'+x[0]+'" data-f="tema"'+(t===x[0]?" checked":"")+'> '+x[1]+(x[0]===""?' <span class="muted">(cambia solo con el modo claro u oscuro de tu computadora o teléfono)</span>':"")+'</label>'}).join("")+'</fieldset></div>';
+}
+
+/* ---------- Contactos (F4): la base de datos de clientes ---------- */
+// Son datos personales de terceros: viven solo en el servidor. Cualquiera del equipo los crea y edita;
+// borrarlos lo hace Dirección o quien los creó (el servidor lo revisa).
+var CORREO_OK=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function contacto(id){return S.contactos.find(function(k){return k.id===id})}
+function puedeBorrarCt(k){return isAdmin()||k.creadoPor===S.session}
+function soloDigitos(t){return String(t||"").replace(/\D/g,"")}
+function ctOrden(a,b){var x=acc(a.cuentaId),y=acc(b.cuentaId),c=String(x?x.name:"").localeCompare(String(y?y.name:""),"es");return c||String(a.nombre).localeCompare(String(b.nombre),"es")}
+function ctFiltrar(){
+  var f=S.ct,q=norm(f.q.trim());
+  return S.contactos.filter(function(k){
+    if(f.cuenta&&k.cuentaId!==f.cuenta)return false;
+    if(!q)return true;
+    var a=acc(k.cuentaId);
+    return norm([k.nombre,k.cargo,k.correo,k.telefono,k.notas,a&&a.name].join(" ")).indexOf(q)>-1||(soloDigitos(q).length>3&&soloDigitos(k.telefono).indexOf(soloDigitos(q))>-1);
+  }).sort(ctOrden);
+}
+function ctRow(k,sinCuenta){
+  var a=acc(k.cuentaId),d=soloDigitos(k.telefono);
+  return '<div class="item ctrow"><button class="btn ghost t" data-act="ctopen" data-id="'+k.id+'">'+esc(k.nombre)+(k.cargo?' <span class="muted small">· '+esc(k.cargo)+'</span>':"")+'</button><span class="actions">'+
+    (k.correo?'<a class="btn small" href="mailto:'+esc(k.correo)+'" title="Escribir a '+esc(k.correo)+'">Correo</a>':"")+
+    (d.length>=10?'<a class="btn small" href="https://wa.me/'+(d.length===10?"52"+d:d)+'" target="_blank" rel="noopener" title="WhatsApp">WhatsApp</a>':"")+
+    '</span><span class="meta">'+(sinCuenta||!a?"":accDot(a)+esc(shortName(a.name))+' · ')+(k.correo?esc(k.correo):"")+(k.correo&&k.telefono?' · ':"")+(k.telefono?'<a href="tel:'+esc(k.telefono.replace(/[^\d+]/g,""))+'">'+esc(k.telefono)+'</a>':"")+(!k.correo&&!k.telefono?'<span>Sin correo ni teléfono</span>':"")+'</span></div>';
+}
+function vContactos(){
+  var f=S.ct,h='<div class="head"><div><h2>Contactos</h2><div class="muted">La base de datos de clientes: con quién tratamos en cada cuenta.</div></div><div class="actions">'+(SRV?'<button class="btn" data-act="ctimp">Importar CSV</button><button class="btn" data-act="ctexp">Exportar CSV</button><button class="btn primary" data-act="ctnuevo">+ Nuevo contacto</button>':"")+'</div></div>';
+  if(!SRV)return h+'<div class="empty">Los contactos se guardan en el servidor. Abre la plataforma desde su dirección en internet.</div>';
+  var cuentas=S.accounts.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")});
+  h+='<div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end"><div class="field" style="flex:2 1 220px"><label for="ct-q">Buscar en todas las cuentas</label><input id="ct-q" data-f="ctq" value="'+esc(f.q)+'" placeholder="Nombre, cargo, correo, teléfono, notas…" autocomplete="off"></div><div class="field" style="flex:1 1 160px"><label for="ct-c">Cuenta</label><select id="ct-c" data-f="ctc"><option value="">Todas</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===f.cuenta?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div>'+(f.q||f.cuenta?'<button class="btn" data-act="ctlimpia">Limpiar</button>':"")+'</div>';
+  var res=ctFiltrar();
+  if(!S.contactos.length)return h+'<div class="empty">Aún no hay contactos. Agrega el primero o importa una lista desde un archivo CSV (por ejemplo, exportado de Excel o de Google Sheets).</div>';
+  h+='<div class="muted small tnum">'+res.length+(res.length===1?" contacto":" contactos")+(res.length!==S.contactos.length?" de "+S.contactos.length:"")+'</div>';
+  return h+'<div class="list">'+(res.length?res.map(function(k){return ctRow(k,!!f.cuenta)}).join(""):'<div class="empty">No hay contactos con esa búsqueda.</div>')+'</div>';
+}
+function ctCuentaPanel(a){
+  if(!SRV)return "";
+  var ks=S.contactos.filter(function(k){return k.cuentaId===a.id}).sort(ctOrden);
+  return '<div class="group"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Contactos <span class="muted small tnum">'+ks.length+'</span></h3><span class="actions"><button class="btn small" data-act="ctver" data-id="'+a.id+'">Ver en Contactos</button><button class="btn small" data-act="ctnuevo" data-acc="'+a.id+'">+ Contacto</button></span></div>'+
+    (ks.length?'<div class="list">'+ks.slice(0,6).map(function(k){return ctRow(k,true)}).join("")+'</div>'+(ks.length>6?'<button class="btn small ghost" data-act="ctver" data-id="'+a.id+'" style="align-self:flex-start">Ver los '+ks.length+'</button>':""):'<div class="muted small">Sin contactos todavía.</div>')+'</div>';
+}
+function ctModal(m){
+  var k=m.id?contacto(m.id):null,cerrar='<button class="btn" data-act="close">Cerrar</button>';
+  if(m.id&&!k)return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Contacto</h2>'+cerrar+'</div><div class="empty">Este contacto ya no existe.</div>';
+  var d=k||{cuentaId:m.acc||S.ct.cuenta||cuentaActual()||"",nombre:"",cargo:"",correo:"",telefono:"",notas:""};
+  var cuentas=S.accounts.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")});
+  var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(k?"Contacto":"Nuevo contacto")+'</h2>'+cerrar+'</div><form id="ctForm" class="panel" style="display:flex;flex-direction:column;gap:12px">';
+  h+='<div class="field"><label for="ct-n">Nombre</label><input id="ct-n" required maxlength="200" value="'+esc(d.nombre)+'" autocomplete="off"></div>';
+  h+='<div class="two"><div class="field"><label for="ct-cargo">Cargo</label><input id="ct-cargo" maxlength="120" value="'+esc(d.cargo||"")+'" placeholder="Dueña, gerente de marca…"></div><div class="field"><label for="ct-acc">Cuenta</label><select id="ct-acc" required><option value="">Elige la cuenta…</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===d.cuentaId?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div></div>';
+  h+='<div class="two"><div class="field"><label for="ct-mail">Correo</label><input id="ct-mail" type="email" maxlength="200" value="'+esc(d.correo||"")+'" autocapitalize="none" spellcheck="false"></div><div class="field"><label for="ct-tel">Teléfono</label><input id="ct-tel" type="tel" maxlength="60" value="'+esc(d.telefono||"")+'" placeholder="33 1234 5678"></div></div>';
+  h+='<div class="field"><label for="ct-notas">Notas</label><textarea id="ct-notas" maxlength="4000" placeholder="Horario, cómo prefiere que le contacten, a quién copiar…">'+esc(d.notas||"")+'</textarea></div>';
+  h+='<div class="err" id="cterr" role="alert"></div><button class="btn primary" type="submit" style="align-self:flex-start">'+(k?"Guardar cambios":"Agregar contacto")+'</button></form>';
+  if(k)h+='<div class="muted small">Lo agregó '+esc(uname(k.creadoPor))+(k.creadoEn?' el '+ftime(k.creadoEn):"")+'.</div>'+(puedeBorrarCt(k)?'<button class="btn danger" data-act="ctborrar" data-id="'+k.id+'" style="align-self:flex-start">'+(S.armed==="ctborrar"+k.id?"Toca otra vez para borrar el contacto":"Borrar contacto")+'</button>':"");
+  return h;
+}
+function guardarCt(){
+  var m=S.modal,er=document.getElementById("cterr"),k=m.id?contacto(m.id):null;
+  var d={nombre:val("ct-n").trim(),cargo:val("ct-cargo").trim(),cuentaId:val("ct-acc"),correo:val("ct-mail").trim().toLowerCase(),telefono:val("ct-tel").trim(),notas:val("ct-notas").trim()};
+  if(!d.nombre){er.textContent="Escribe el nombre.";return}
+  if(!acc(d.cuentaId)){er.textContent="Elige la cuenta.";return}
+  if(d.correo&&!CORREO_OK.test(d.correo)){er.textContent="Revisa el correo: no parece válido.";return}
+  if(k)Object.keys(d).forEach(function(x){k[x]=d[x]});
+  else{d.id="k"+nid();d.creadoPor=S.session;d.creadoEn=nowIso();S.contactos.push(d)}
+  S.modal=null;save();toast(k?"Contacto guardado":"Contacto agregado");
+}
+
+/* ---------- CSV ---------- */
+var CT_COLS=[["cuenta","Cuenta"],["nombre","Nombre"],["cargo","Cargo"],["correo","Correo"],["telefono","Teléfono"],["notas","Notas"]];
+var CT_ALIAS={cuenta:["cuenta","cliente","empresa","marca","account","company"],nombre:["nombre","name","contacto","nombrecompleto","fullname"],cargo:["cargo","puesto","rol","title","position","jobtitle"],correo:["correo","email","mail","correoelectronico","emailaddress"],telefono:["telefono","tel","phone","celular","movil","whatsapp","phonenumber"],notas:["notas","nota","notes","comentarios","observaciones"]};
+// Evita que Excel ejecute una fórmula escondida en un dato (inyección CSV). Los teléfonos tipo +52… se dejan igual.
+function csvCelda(v){
+  var s=String(v==null?"":v);
+  if(/^[=@\t\r]/.test(s)||(/^[+\-]/.test(s)&&!/^[+\-][\d\s().-]*$/.test(s)))s="'"+s;
+  return /[",;\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+}
+function descargar(nombre,texto){
+  var b=new Blob(["﻿"+texto],{type:"text/csv;charset=utf-8"}),u=URL.createObjectURL(b),a=document.createElement("a");
+  a.href=u;a.download=nombre;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},2000);
+}
+function exportarCt(){
+  var res=ctFiltrar();if(!res.length)return toast("No hay contactos para exportar");
+  var filas=[CT_COLS.map(function(c){return c[1]}).join(",")].concat(res.map(function(k){var a=acc(k.cuentaId);return [a?a.name:"",k.nombre,k.cargo,k.correo,k.telefono,k.notas].map(csvCelda).join(",")}));
+  var a=acc(S.ct.cuenta),nom="contactos"+(a?"-"+norm(a.name).replace(/[^a-z0-9]+/g,"-"):"")+"-"+iso(0)+".csv";
+  descargar(nom,filas.join("\r\n")+"\r\n");
+  toast(res.length+(res.length===1?" contacto exportado":" contactos exportados"));
+}
+// Lector de CSV (RFC 4180): comillas, saltos de línea dentro de comillas y separador coma, punto y coma o tabulador.
+function leerCsv(t){
+  t=t.replace(/^﻿/,"");
+  var primera=t.split(/\r?\n/)[0]||"",cuenta=function(c){return primera.split(c).length},sep=[",",";","\t"].sort(function(a,b){return cuenta(b)-cuenta(a)})[0];
+  var filas=[],fila=[],celda="",q=false;
+  for(var i=0;i<t.length;i++){
+    var c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){celda+='"';i++}else q=false}else celda+=c}
+    else if(c==='"')q=true;
+    else if(c===sep){fila.push(celda);celda=""}
+    else if(c==="\n"||c==="\r"){if(c==="\r"&&t[i+1]==="\n")i++;fila.push(celda);filas.push(fila);fila=[];celda=""}
+    else celda+=c;
+  }
+  if(celda!==""||fila.length){fila.push(celda);filas.push(fila)}
+  return filas.filter(function(f){return f.some(function(x){return x.trim()})});
+}
+function planImportar(texto,cuentaDef){
+  var filas=leerCsv(texto);
+  if(filas.length<2)return{error:"El archivo no tiene filas de contactos (la primera fila deben ser los títulos de las columnas)."};
+  if(filas.length>2001)return{error:"El archivo tiene más de 2,000 contactos. Divídelo en partes."};
+  var idx={};
+  filas[0].forEach(function(h,i){var k=norm(h).replace(/[^a-z]/g,"");Object.keys(CT_ALIAS).forEach(function(c){if(idx[c]===undefined&&CT_ALIAS[c].indexOf(k)>-1)idx[c]=i})});
+  if(idx.nombre===undefined)return{error:"No encontré la columna «Nombre». La primera fila debe traer los títulos: Cuenta, Nombre, Cargo, Correo, Teléfono, Notas."};
+  if(idx.cuenta===undefined&&!acc(cuentaDef))return{error:"El archivo no trae la columna «Cuenta». Elige arriba a qué cuenta van estos contactos."};
+  var porNombre={};S.accounts.forEach(function(a){porNombre[norm(a.name).trim()]=a});
+  var llave=function(c,correo,nombre){return c+"|"+(correo?"@"+correo:"n:"+norm(nombre).replace(/\s+/g," ").trim())};
+  var existentes={};S.contactos.forEach(function(k){existentes[llave(k.cuentaId,k.correo,k.nombre)]=k;if(k.correo)existentes[llave(k.cuentaId,"",k.nombre)]=existentes[llave(k.cuentaId,"",k.nombre)]||k});
+  var vistos={},plan=[];
+  filas.slice(1).forEach(function(f,n){
+    var g=function(c){var v=idx[c]===undefined?"":String(f[idx[c]]||"").trim();return v.charAt(0)==="'"?v.slice(1):v};
+    var r={fila:n+2,nombre:g("nombre").slice(0,200),cargo:g("cargo").slice(0,120),correo:g("correo").toLowerCase().slice(0,200),telefono:g("telefono").slice(0,60),notas:g("notas").slice(0,4000)};
+    var nc=g("cuenta"),a=nc?porNombre[norm(nc).trim()]:acc(cuentaDef);
+    r.cuentaTxt=nc||(a?a.name:"");
+    if(!r.nombre)r.error="Le falta el nombre";
+    else if(!a)r.error="No existe la cuenta «"+nc+"» (Dirección la crea en Cuentas)";
+    else if(r.correo&&!CORREO_OK.test(r.correo))r.error="Correo inválido";
+    if(!r.error){
+      r.cuentaId=a.id;
+      var k1=llave(a.id,r.correo,r.nombre),k2=llave(a.id,"",r.nombre);
+      if(vistos[k1]){r.error="Repetido en el archivo (fila "+vistos[k1]+")"}
+      else{vistos[k1]=r.fila;var ex=existentes[k1]||(!r.correo?existentes[k2]:null);r.accion=ex?"actualiza":"nuevo";if(ex)r.id=ex.id}
+    }
+    plan.push(r);
+  });
+  return{plan:plan,nuevos:plan.filter(function(r){return r.accion==="nuevo"}).length,act:plan.filter(function(r){return r.accion==="actualiza"}).length,errores:plan.filter(function(r){return r.error}).length};
+}
+function impModal(m){
+  var cuentas=S.accounts.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")});
+  var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Importar contactos</h2><button class="btn" data-act="close">Cerrar</button></div>';
+  h+='<div class="panel" style="display:flex;flex-direction:column;gap:12px"><p class="muted small" style="margin:0">Sube un archivo CSV (desde Excel: «Guardar como» → CSV UTF-8; desde Google Sheets: Archivo → Descargar → CSV). La primera fila son los títulos: <b>Cuenta, Nombre, Cargo, Correo, Teléfono, Notas</b>. Solo «Nombre» es obligatorio. Si un contacto ya existe en esa cuenta (mismo correo, o mismo nombre sin correo), se actualiza; nada se borra.</p>'+
+    '<div class="field"><label for="imp-acc">Cuenta para las filas sin columna «Cuenta»</label><select id="imp-acc" data-f="impacc"><option value="">Ninguna (el archivo trae la cuenta)</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===m.cuenta?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div>'+
+    '<div class="row" style="flex-wrap:wrap;gap:8px"><label class="btn primary" for="imp-file">Elegir archivo CSV<input id="imp-file" type="file" accept=".csv,text/csv,text/plain" data-f="impfile" class="sr"></label><button class="btn" data-act="ctplantilla" type="button">Descargar plantilla</button></div>'+(m.archivo?'<div class="muted small">Archivo: <b>'+esc(m.archivo)+'</b></div>':"")+'</div>';
+  if(m.error)h+='<div class="banner" role="alert">'+esc(m.error)+'</div>';
+  if(m.res){
+    var r=m.res,ok=r.nuevos+r.act;
+    h+='<div class="tiles">'+tile(r.nuevos,"Nuevos")+tile(r.act,"Se actualizan")+tile(r.errores,"Con error",r.errores?"bad":"")+'</div>';
+    h+='<div class="list">'+r.plan.slice(0,200).map(function(x){return '<div class="item" style="grid-template-columns:1fr auto"><span class="t">'+esc(x.nombre||"(sin nombre)")+(x.cargo?' <span class="muted small">· '+esc(x.cargo)+'</span>':"")+'</span><span>'+(x.error?'<span class="pill risk-atrasada">Fila '+x.fila+': '+esc(x.error)+'</span>':x.accion==="nuevo"?'<span class="pill st-publicada">Nuevo</span>':'<span class="pill st-diseno">Se actualiza</span>')+'</span><span class="meta">'+esc(x.cuentaTxt||"Sin cuenta")+(x.correo?' · '+esc(x.correo):"")+(x.telefono?' · '+esc(x.telefono):"")+'</span></div>'}).join("")+'</div>'+(r.plan.length>200?'<div class="muted small">Se muestran 200 de '+r.plan.length+' filas.</div>':"");
+    h+='<button class="btn primary" data-act="ctimportar" style="align-self:flex-start"'+(ok?"":" disabled")+'>'+(ok?"Importar "+ok+(ok===1?" contacto":" contactos"):"Nada que importar")+'</button>'+(r.errores&&ok?'<div class="muted small">Las filas con error no se importan.</div>':"");
+  }
+  return h;
+}
+function leerArchivoImp(file){
+  var m=S.modal;if(!file)return;
+  if(file.size>5*1024*1024){m.error="El archivo pesa más de 5 MB.";m.res=null;return render()}
+  var rd=new FileReader();
+  rd.onload=function(){m.texto=String(rd.result||"");m.archivo=file.name;m.error="";var r=planImportar(m.texto,m.cuenta);if(r.error){m.error=r.error;m.res=null}else m.res=r;render()};
+  rd.onerror=function(){m.error="No se pudo leer el archivo.";render()};
+  rd.readAsText(file,"utf-8");
+}
+function importarCt(){
+  var m=S.modal,r=m.res;if(!r)return;
+  var n=0,ahora=nowIso();
+  r.plan.forEach(function(x){
+    if(x.error)return;
+    if(x.accion==="actualiza"){var k=contacto(x.id);if(!k)return;["cargo","correo","telefono","notas"].forEach(function(c){if(x[c])k[c]=x[c]});n++}
+    else{S.contactos.push({id:"k"+nid(),cuentaId:x.cuentaId,nombre:x.nombre,cargo:x.cargo,correo:x.correo,telefono:x.telefono,notas:x.notas,creadoPor:S.session,creadoEn:ahora});n++}
+  });
+  S.modal=null;save();toast(n+(n===1?" contacto importado":" contactos importados"));
+}
+
 /* ---------- Modales ---------- */
 function modal(){
   var m=S.modal,h='<div class="overlay" data-act="closebg"><div class="drawer" role="dialog" aria-modal="true">';
@@ -1818,6 +2007,8 @@ function modal(){
   else if(m.kind==="subir")h+=subirModal(m);
   else if(m.kind==="purgar")h+=purgarModal(m);
   else if(m.kind==="junta")h+=juntaModal(m);
+  else if(m.kind==="contacto")h+=ctModal(m);
+  else if(m.kind==="importar")h+=impModal(m);
   return h+'</div></div>';
 }
 function taskModal(t){
@@ -1908,7 +2099,7 @@ function tryStatus(t,k){
   var r=t.assignees.length?" · ahora: "+names(t.assignees):"";
   toast("«"+sDef(t).n+"»"+r);
 }
-var ARMABLE={deltask:1,autodel:1,delkn:1,delag:1,reset:1,delref:1,enborrar:1};
+var ARMABLE={deltask:1,autodel:1,delkn:1,delag:1,reset:1,delref:1,enborrar:1,ctborrar:1};
 function arm(k){if(S.armed===k){S.armed=null;return true}S.armed=k;render();return false}
 var STEPS={redes:[["Redactar el texto","community"],["Diseñar la pieza","diseno"],["Aprobación del cliente","admin"],["Programar la publicación","community"]],diseno:[["Entender el brief","admin"],["Primera propuesta","diseno"],["Ajustes y entrega","diseno"]]};
 function act(a,el){
@@ -2021,6 +2212,15 @@ function act(a,el){
   case"drlink":var df=(S.dr.items||[]).find(function(z){return z.id===id});if(!df)return;S.modal={kind:"drlink",file:{id:df.id,title:df.title,url:safeUrl(df.viewUrl)}};return render();
   case"dldo":var dp=taskById(val("dl-task"));if(!dp)return;dp.files=dp.files||[];if(dp.files.some(function(z){return z.id===S.modal.file.id})){S.modal=null;return toast("Ese archivo ya estaba vinculado")}dp.files.push(S.modal.file);logT(dp,"Vinculó el archivo de Drive «"+S.modal.file.title+"»");S.modal=null;save();return toast("Archivo vinculado a la tarea");
   case"drunlink":t.files.splice(+el.getAttribute("data-j"),1);logT(t,"Quitó un archivo de Drive");save();return render();
+  case"ctnuevo":S.modal={kind:"contacto",acc:el.getAttribute("data-acc")||""};S.pop=null;return render();
+  case"ctopen":S.modal={kind:"contacto",id:id};S.pop=null;return render();
+  case"ctborrar":if(!arm("ctborrar"+id))return;S.contactos=S.contactos.filter(function(z){return z.id!==id});S.modal=null;save();return toast("Contacto borrado");
+  case"ctver":S.view="contactos";S.ct.cuenta=id;S.ct.q="";S.modal=null;S.toTop=true;return render();
+  case"ctlimpia":S.ct.q="";S.ct.cuenta="";return render();
+  case"ctimp":S.modal={kind:"importar",cuenta:S.ct.cuenta||""};return render();
+  case"ctexp":return exportarCt();
+  case"ctplantilla":return descargar("plantilla-contactos.csv",CT_COLS.map(function(c){return c[1]}).join(",")+"\r\n");
+  case"ctimportar":return importarCt();
   case"junta":S.modal={kind:"junta",paso:"texto",texto:"",filas:[],fecha:iso(7)};S.pop=null;return render();
   case"jtatras":guardarJunta();S.modal.paso="texto";return render();
   case"genf":S.gen.f=el.getAttribute("data-v");S.gen.lim=40;return render();
@@ -2056,6 +2256,7 @@ document.addEventListener("input",function(e){
   var f=e.target.getAttribute&&e.target.getAttribute("data-f");
   if(e.target.id==="e-copy"){var cn2=document.getElementById("copy-n");if(cn2)cn2.textContent=e.target.value.length+" caracteres";return}
   if(f==="enq"){S.en.q=e.target.value;render();return}
+  if(f==="ctq"){S.ct.q=e.target.value;render();return}
   if(f==="qtext"){S.q.text=e.target.value;var pos=e.target.selectionStart;render();var n=document.getElementById("qtext");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(x){}}}
 });
 document.addEventListener("change",function(e){
@@ -2066,6 +2267,10 @@ document.addEventListener("change",function(e){
   else if(f==="kbAcc"){S.kf.acc=el.value;render()}
   else if(f==="enestado"){S.en.estado=el.value;render()}
   else if(f==="jt"){guardarJunta();render()}
+  else if(f==="ctc"){S.ct.cuenta=el.value;render()}
+  else if(f==="impacc"){S.modal.cuenta=el.value;if(S.modal.texto){var ri=planImportar(S.modal.texto,el.value);S.modal.error=ri.error||"";S.modal.res=ri.error?null:ri}render()}
+  else if(f==="impfile"){leerArchivoImp(el.files&&el.files[0])}
+  else if(f==="tema"){S.prefs[S.session]=S.prefs[S.session]||{};S.prefs[S.session].tema=el.value;aplicarTema(el.value);save();render()}
   else if(f==="ajregla"||f==="ajautor"){if(!isAdmin())return render();var aj0=ajAprob();if(f==="ajregla")aj0.regla=el.value;else aj0.autorAprueba=!!el.checked;S.ajustes.aprobacion=aj0;save();render();toast("Ajuste de aprobación guardado")}
   else if(f==="enpersona"){S.en.persona=el.value;render()}
   else if(f==="entipo"){S.en.tipo=el.value;render()}
@@ -2128,6 +2333,8 @@ function handleSubmit(form){
     var rec={kind:val("ag-kind"),title:val("ag-title").trim(),date:val("ag-date"),time:val("ag-time"),owner:u0.role==="admin"?val("ag-owner"):(ex?ex.owner:u0.id),acc:val("ag-acc"),notes:val("ag-notes")};
     if(ex){Object.keys(rec).forEach(function(q){ex[q]=rec[q]})}else{rec.id="a"+nid();rec.done=false;S.agenda.push(rec)}
     S.agDay=rec.date;S.agMonth=rec.date.slice(0,7);S.modal=null;save();toast(ex?"Cambios guardados":"Agregado a la agenda");
+  }else if(id==="ctForm"){
+    guardarCt();
   }else if(id==="juntaForm"){
     var jtx=val("jt-texto"),jfl=parsearJunta(jtx);
     if(!jfl.length)return toast("No encontré pendientes. Escribe @Nombre: y debajo un pendiente por línea con viñeta (•, -)");
@@ -2296,7 +2503,7 @@ window.addEventListener("storage",function(e){
    Si existe /api (Cloudflare Pages Functions + D1), la pantalla sincroniza con el servidor: cada elemento (tarea,
    comentario de aviso, nota…) es una fila, y solo se mandan los elementos que cambiaron. Si no existe (archivo suelto,
    artifact), todo sigue en localStorage como antes. Ver DISENO-FASE-1.md. */
-var BASEO={},BASEJ={},CREADO={},ORDEN={},enCurso=false,pendiente=false,fallos=0,TIPOS_ARR={user:"users",account:"accounts",list:"lists",task:"tasks",cal:"cals",ag:"agenda",auto:"autos",inbox:"inbox",entrega:"entregas",actividad:"actividad"};
+var BASEO={},BASEJ={},CREADO={},ORDEN={},enCurso=false,pendiente=false,fallos=0,TIPOS_ARR={user:"users",account:"accounts",list:"lists",task:"tasks",cal:"cals",ag:"agenda",auto:"autos",inbox:"inbox",entrega:"entregas",actividad:"actividad",contacto:"contactos"};
 
 /* ids únicos aunque dos personas creen algo al mismo tiempo (antes era un contador compartido) */
 function nid(){return SRV?Date.now().toString(36)+Math.random().toString(36).slice(2,7):++S.seq}
@@ -2320,7 +2527,7 @@ function aplanar(){
   var m={};
   function p(tipo,id,datos){m[tipo+"|"+id]={tipo:tipo,id:String(id),datos:datos}}
   S.users.forEach(function(u){var d=cl(u);delete d.pass;p("user",u.id,d)});
-  [["account","accounts"],["list","lists"],["task","tasks"],["cal","cals"],["ag","agenda"],["auto","autos"],["inbox","inbox"],["entrega","entregas"],["actividad","actividad"]].forEach(function(t){S[t[1]].forEach(function(x){p(t[0],x.id,x)})});
+  [["account","accounts"],["list","lists"],["task","tasks"],["cal","cals"],["ag","agenda"],["auto","autos"],["inbox","inbox"],["entrega","entregas"],["actividad","actividad"],["contacto","contactos"]].forEach(function(t){S[t[1]].forEach(function(x){p(t[0],x.id,x)})});
   S.kanban.notes.forEach(function(n,i){var d=cl(n);d.o=i;p("note",n.id,d)});
   p("cols","main",{cols:S.kanban.cols});
   Object.keys(S.stat).forEach(function(k){p("stat",k,{v:S.stat[k]})});
@@ -2388,7 +2595,7 @@ function aplicar(e,instantanea,enviados){
 }
 
 function construir(entidades){
-  S={users:[],accounts:[],lists:[],tasks:[],cals:[],agenda:[],kanban:{cols:[],notes:[]},autos:[],stat:cl(STAT0),inbox:[],seen:{},prefs:{},boards:{},entregas:[],actividad:[],ajustes:{},seq:0,session:null};
+  S={users:[],accounts:[],lists:[],tasks:[],cals:[],agenda:[],kanban:{cols:[],notes:[]},autos:[],stat:cl(STAT0),inbox:[],seen:{},prefs:{},boards:{},entregas:[],actividad:[],ajustes:{},contactos:[],seq:0,session:null};
   BASEO={};BASEJ={};CREADO={};ORDEN={};
   entidades.forEach(function(e){aplicar(e)});
   ordenar();ui();
@@ -2418,6 +2625,8 @@ function sincronizar(){
   var act=aplanar(),cambios=[],enviados={};
   Object.keys(act).forEach(function(k){var j=sj(act[k].datos);if(BASEJ[k]!==j){cambios.push({tipo:act[k].tipo,id:act[k].id,base:BASEO[k]||null,datos:act[k].datos});enviados[k]=j}});
   Object.keys(BASEJ).forEach(function(k){if(!act[k]){var i=k.indexOf("|");cambios.push({tipo:k.slice(0,i),id:k.slice(i+1),base:BASEO[k]||null,datos:null});enviados[k]=null}});
+  // El servidor acepta hasta 300 cambios por solicitud: lo demás (p. ej., una importación grande) va en la siguiente.
+  if(cambios.length>250){cambios=cambios.slice(0,250);var lote={};cambios.forEach(function(c){var k=c.tipo+"|"+c.id;lote[k]=enviados[k]});enviados=lote;pendiente=true}
   return api("sync",{desde:SRV.cursor,cambios:cambios}).then(function(r){
     var antes=cambios.length;
     (r.entidades||[]).forEach(function(e){aplicar(e,act,enviados)});

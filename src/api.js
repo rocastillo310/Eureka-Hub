@@ -6,8 +6,9 @@ import { verificarAccess } from './access.js';
 import { correosDelEquipo, sincronizarPoliticaAccess } from './access-politica.js';
 import { aEntidad, escribir } from './entidades.js';
 import { manejarEntregas } from './entregas.js';
+import { prepararContacto } from './contactos.js';
 
-export const TIPOS = new Set(['user', 'account', 'list', 'task', 'cal', 'ag', 'auto', 'inbox', 'note', 'cols', 'stat', 'seen', 'pref', 'board', 'entrega', 'actividad', 'ajuste']);
+export const TIPOS = new Set(['user', 'account', 'list', 'task', 'cal', 'ag', 'auto', 'inbox', 'note', 'cols', 'stat', 'seen', 'pref', 'board', 'entrega', 'actividad', 'ajuste', 'contacto']);
 // Solo el rol admin escribe estos tipos (sección 5 del prompt).
 export const SOLO_ADMIN = new Set(['user', 'auto', 'stat', 'cols', 'ajuste']);
 // `entrega` la escribe solo el servidor (rutas /api/entregas/*), que estampa autor y hora; por sync se rechaza.
@@ -191,6 +192,11 @@ export async function manejarApi(request, env) {
 					const a = ya ? { motivo: 'La actividad no se edita ni se borra' } : actividadDeCliente(c, q.usuario);
 					if (a.motivo) { rechazados.push({ tipo: c.tipo, id: c.id, motivo: a.motivo }); continue; }
 					c.datos = a.datos;
+				}
+				if (c.tipo === 'contacto') {
+					const k = await prepararContacto(env, c, q.usuario);
+					if (k.motivo) { rechazados.push({ tipo: c.tipo, id: c.id, motivo: k.motivo }); continue; }
+					c.datos = k.datos;
 				}
 				await aplicarCambio(env, c, q.usuario.id);
 				if (c.tipo === 'user') cambioEquipo = true;
