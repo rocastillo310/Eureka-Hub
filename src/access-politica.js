@@ -28,9 +28,15 @@ export async function sincronizarPoliticaAccess(env, correos, buscar = fetch) {
 	if (!correos.length) return { ok: false, motivo: 'No se actualiza Access con una lista vacía' };
 	const url = `${API}/accounts/${cuenta}/access/policies/${politica}`;
 	// Sin User-Agent, la API de Cloudflare rechaza la llamada con el error 1010 (firma de navegador bloqueada).
-	const cab = { authorization: `Bearer ${token}`, 'content-type': 'application/json', 'user-agent': 'eureka-hub-worker/1.0' };
+	const cab = { authorization: `Bearer ${token}`, 'content-type': 'application/json', accept: 'application/json', 'user-agent': 'eureka-hub-worker/1.0 (+https://github.com/rocastillo310/Eureka-Hub)' };
+	// Deja en los logs del Worker lo que respondió Cloudflare cuando algo falla (sin el token).
+	const registrar = async (paso, r) => console.log(JSON.stringify({
+		accessPolitica: paso, estado: r.status, servidor: r.headers.get('server'), ray: r.headers.get('cf-ray'),
+		tipo: r.headers.get('content-type'), cuerpo: (await r.clone().text()).slice(0, 300),
+	}));
 	try {
 		const g = await buscar(url, { headers: cab });
+		if (!g.ok && g.headers) await registrar('leer', g);
 		const actual = await g.json().catch(() => null);
 		if (!g.ok || !actual || !actual.success) return { ok: false, motivo: 'No se pudo leer la política de Access' + detalle(g.status, actual) };
 		const p = actual.result;
@@ -41,6 +47,7 @@ export async function sincronizarPoliticaAccess(env, correos, buscar = fetch) {
 		for (const k of CONSERVAR) if (p[k] !== undefined && p[k] !== null) cuerpo[k] = p[k];
 		cuerpo.include = correos.map((email) => ({ email: { email } }));
 		const u = await buscar(url, { method: 'PUT', headers: cab, body: JSON.stringify(cuerpo) });
+		if (!u.ok && u.headers) await registrar('actualizar', u);
 		const res = await u.json().catch(() => null);
 		if (!u.ok || !res || !res.success) return { ok: false, motivo: 'Cloudflare rechazó la actualización de Access' + detalle(u.status, res) };
 		return { ok: true, cambio: true };
