@@ -63,5 +63,10 @@ export function r2Falso() {
 			return { body: new Response(b).body, httpEtag: `"${o.etag}"`, size: o.bytes.length };
 		},
 		async delete(llaves) { for (const k of [].concat(llaves)) objetos.delete(k); },
+		async list({ cursor, limit = 1000 } = {}) {
+			const todas = [...objetos.keys()].sort(), desde = cursor ? Number(cursor) : 0, pagina = todas.slice(desde, desde + limit);
+			const fin = desde + limit < todas.length;
+			return { objects: pagina.map((k) => ({ key: k, size: objetos.get(k).bytes.length, etag: objetos.get(k).etag, uploaded: new Date('2026-10-13T00:00:00Z') })), truncated: fin, cursor: fin ? String(desde + limit) : undefined };
+		},
 	};
 }
