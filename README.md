@@ -191,7 +191,15 @@ En Windows usa `npx.cmd` si PowerShell bloquea `npx`.
 2. El correo se agrega solo a la política de Cloudflare Access. Si sale el aviso «Cloudflare Access no se actualizó», agrégalo a mano: dashboard de Cloudflare → Zero Trust → Access → Policies → la política del Hub → Include → Emails → agrega el correo → Save. Luego revisa el token (ver la tabla de abajo).
 3. La persona abre la dirección del Hub, escribe su correo, recibe un código de un solo uso y lo pega. Listo.
 
-**Dar de baja:** todavía no hay botón (pendiente). Mientras, para quitarle el acceso al momento, quita su correo de la política de Access en el dashboard y pide que lo quiten de la base; si no, la próxima vez que cambie el equipo su correo vuelve a la política.
+### Dar de baja a alguien
+
+Equipo → en su fila, «Dar de baja» → toca de nuevo para confirmar.
+
+- Pierde el acceso al momento: el servidor ya no la deja entrar y su correo sale de la política de Access.
+- No se borra: su nombre se conserva en el historial, actividad y comentarios. Deja de aparecer para asignar, mencionar, avisar o aprobar, y sale del equipo de cada cuenta.
+- Sus tareas abiertas siguen asignadas y aparecen en «Quién tiene qué» marcadas «de baja, reasígnalas».
+- «Reactivar» (en «Dados de baja», abajo de la lista) le devuelve el acceso. Vuelve a marcar «Aprueba entregas» y su lugar en las cuentas si hace falta.
+- Nadie se da de baja a sí mismo y siempre queda al menos una persona de Dirección activa (lo revisa el servidor).
 
 ### Si algo falla
 

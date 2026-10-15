@@ -61,17 +61,20 @@ async function usuarios(env) {
 }
 
 // ---------- identidad ----------
+const BAJA = 'Tu acceso al Hub fue dado de baja. Si es un error, habla con Dirección.';
 async function quien(request, env) {
 	if (esModoDev(request, env)) {
 		// En desarrollo, <video> e <img> no pueden mandar encabezados: se acepta también ?devUser= (solo aquí).
 		const id = request.headers.get('X-Dev-User') || new URL(request.url).searchParams.get('devUser');
 		const u = id ? (await usuarios(env)).find((x) => x.id === id) : null;
+		if (u && u.baja) return { dev: true, usuario: null, email: null, motivo: BAJA };
 		return { dev: true, usuario: u || null, email: null, motivo: u ? null : 'Elige un usuario' };
 	}
 	const v = await verificarAccess(request, env);
 	if (!v.ok) return { dev: false, usuario: null, email: null, motivo: v.motivo };
 	const correo = v.email.toLowerCase();
 	const u = (await usuarios(env)).find((x) => typeof x.email === 'string' && x.email.toLowerCase() === correo);
+	if (u && u.baja) return { dev: false, usuario: null, email: v.email, motivo: BAJA };
 	return { dev: false, usuario: u || null, email: v.email, motivo: u ? null : 'Ese correo no está dado de alta en el equipo' };
 }
 
@@ -127,6 +130,16 @@ function validarCambio(c) {
 export function permiso(usuario, c) {
 	if (SOLO_SERVIDOR.has(c.tipo)) return 'Esto lo registra solo el servidor';
 	if (SOLO_ADMIN.has(c.tipo) && usuario.role !== 'admin') return 'Solo Dirección puede cambiar esto';
+	return null;
+}
+
+// Cambios al equipo (dar de baja, cambiar rol, quitar a alguien): nadie se da de baja a sí mismo y siempre queda al
+// menos una persona de Dirección activa; si no, nadie podría administrar el Hub.
+export async function motivoNoCambiarEquipo(env, c, usuario) {
+	if (c.datos && c.datos.baja && c.id === usuario.id) return 'No puedes darte de baja a ti mismo';
+	const despues = (await usuarios(env)).filter((u) => u.id !== c.id);
+	if (c.datos) despues.push({ ...c.datos, id: c.id });
+	if (!despues.some((u) => u.role === 'admin' && !u.baja)) return 'Debe quedar al menos una persona de Dirección activa';
 	return null;
 }
 
@@ -211,6 +224,10 @@ export async function manejarApi(request, env) {
 					rechazados.push({ tipo: c.tipo, id: c.id, motivo: 'Solo Dirección puede eliminar listas' });
 					continue;
 				}
+				if (c.tipo === 'user') {
+					const m = await motivoNoCambiarEquipo(env, c, q.usuario);
+					if (m) { rechazados.push({ tipo: c.tipo, id: c.id, motivo: m }); continue; }
+				}
 				if (c.tipo === 'account' && c.datos === null) {
 					const m = await motivoNoBorrarCuenta(env, c.id, q.usuario);
 					if (m) { rechazados.push({ tipo: c.tipo, id: c.id, motivo: m }); continue; }
@@ -235,7 +252,7 @@ export async function manejarApi(request, env) {
 			let aviso;
 			if (cambioEquipo) {
 				const r = await sincronizarPoliticaAccess(env, await correosDelEquipo(env));
-				if (!r.ok) aviso = `Se guardó en el equipo, pero Cloudflare Access no se actualizó: ${r.motivo}. Agrega el correo a mano en el dashboard.`;
+				if (!r.ok) aviso = `Se guardó en el equipo, pero Cloudflare Access no se actualizó: ${r.motivo}. Corrige la lista de correos de la política a mano en el dashboard.`;
 			}
 			const { entidades, cursor, mas } = await cambiosDesde(env, desde);
 			// Lo rechazado vuelve con su estado del servidor para que la pantalla deshaga el cambio local.

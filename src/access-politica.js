@@ -18,7 +18,8 @@ const CONSERVAR = ['name', 'decision', 'require', 'exclude', 'session_duration',
 
 export async function correosDelEquipo(env) {
 	const r = await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'user' AND borrado = 0").all();
-	const correos = (r.results || []).map((f) => JSON.parse(f.datos).email).filter((e) => typeof e === 'string' && e.includes('@'));
+	// Quien está dado de baja sale de la política: pierde el acceso aunque siga en la base (con su historial).
+	const correos = (r.results || []).map((f) => JSON.parse(f.datos)).filter((u) => !u.baja).map((u) => u.email).filter((e) => typeof e === 'string' && e.includes('@'));
 	return [...new Set(correos.map((e) => e.trim().toLowerCase()))].sort();
 }
 

@@ -127,7 +127,7 @@ export async function respaldar(env, { origen = 'cron', buscar = fetch, ahora = 
 		// registrado en Ajustes, para no avisar cada noche).
 		if (origen === 'cron' && repo && token) {
 			const admins = ((await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'user' AND borrado = 0").all()).results || [])
-				.map((f) => JSON.parse(f.datos)).filter((u) => u.role === 'admin');
+				.map((f) => JSON.parse(f.datos)).filter((u) => u.role === 'admin' && !u.baja);
 			for (const u of admins) {
 				const id = 'i' + crypto.randomUUID().replace(/-/g, '').slice(0, 20);
 				await guardarDelServidor(env, 'inbox', id, () => ({ id, to: u.id, t: new Date().toISOString(), x: `El respaldo diario falló: ${res.motivo}`, task: '', read: false }), 'servidor');
