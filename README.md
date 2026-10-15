@@ -2,6 +2,8 @@
 
 Plataforma interna de la agencia creativa Eureka Hub: entregables, calendario, agendas, contactos de clientes y base de datos en un solo lugar. La usa solo el equipo.
 
+> **¿Algo falla o hay que dar de alta a alguien?** Ve a [Operación](#operación-para-dirección).
+
 > **Repositorio público.** Aquí va el código, nunca los datos: ni correos del equipo, ni contactos de clientes, ni tokens, ni exportaciones de la base. Los secretos viven como secretos de Cloudflare.
 
 ## Arquitectura
@@ -170,6 +172,87 @@ GitHub bloquea archivos de más de 100 MiB y advierte desde 50 MiB (documentaci�
 
 **Propuesta (sin implementar, falta tu decisión):** copia semanal de los archivos de R2 a la unidad compartida de Google Drive del equipo con [rclone](https://rclone.org/), que copia solo lo nuevo o cambiado, programada en una computadora de la oficina. Ventajas: el equipo ya vive en Drive y su espacio probablemente ya está pagado; la copia queda fuera de Cloudflare (protege si algo le pasa a la cuenta). Necesita un token de R2 de solo lectura y conectar rclone a Drive una vez. Alternativas: un segundo bucket de R2 (simple, pero cuenta contra los mismos 10 GB gratis y no protege si falla la cuenta) o Backblaze B2 (barato, otro proveedor más).
 
+## Operación (para Dirección)
+
+Lo del día a día: dar de alta a alguien, qué hacer si algo falla y cómo regresar los datos. Los comandos se corren en PowerShell desde la carpeta del proyecto, con la cuenta puesta:
+
+```bash
+$env:CLOUDFLARE_ACCOUNT_ID="<id de la cuenta>"
+```
+
+En Windows usa `npx.cmd` si PowerShell bloquea `npx`.
+
+### Dar de alta a alguien
+
+1. Entra como Dirección → **Equipo** → «Agregar persona».
+   - **Nombre** y **Usuario** (corto, sin espacios, p. ej. `benja`; es su identificador interno y no se cambia después).
+   - **Rol** y **Correo con el que entra**: el correo donde le llegará el código para entrar.
+   - **Cuentas a las que se suma** y, si aplica, marca «Aprueba entregas» en su fila.
+2. El correo se agrega solo a la política de Cloudflare Access. Si sale el aviso «Cloudflare Access no se actualizó», agrégalo a mano: dashboard de Cloudflare → Zero Trust → Access → Policies → la política del Hub → Include → Emails → agrega el correo → Save. Luego revisa el token (ver la tabla de abajo).
+3. La persona abre la dirección del Hub, escribe su correo, recibe un código de un solo uso y lo pega. Listo.
+
+**Dar de baja:** todavía no hay botón (pendiente). Mientras, para quitarle el acceso al momento, quita su correo de la política de Access en el dashboard y pide que lo quiten de la base; si no, la próxima vez que cambie el equipo su correo vuelve a la política.
+
+### Si algo falla
+
+| Lo que ves | Qué significa | Qué hacer |
+|---|---|---|
+| «Sin conexión con el servidor…» | No hay internet o el servidor no responde. Tus cambios siguen en la pantalla. | No cierres la pestaña; se guardan solos al volver. Si dura más de 5 minutos, revisa <https://www.cloudflarestatus.com>. |
+| «No se pudo guardar: …» | El servidor respondió con un error. | Se vuelve a intentar solo. Si no se quita, recarga. Si se repite, manda captura y revisa los registros (abajo). |
+| «No se guardó un cambio: …» | El servidor rechazó ese cambio (p. ej., solo Dirección puede hacerlo) y lo regresó a como estaba. | Lee el motivo; no es una falla. |
+| «Tu sesión terminó» | Venció la sesión de Cloudflare Access. | Recarga y vuelve a entrar con el código. |
+| «Algo falló al mostrar esta pantalla» | La pantalla no pudo mostrar algún dato. Los datos están a salvo en el servidor. | «Volver al inicio». Si se repite, manda el mensaje que aparece. |
+| Access no deja entrar a alguien, o dice «Ese correo no está dado de alta» | Su correo no está en la política de Access o no está en **Equipo** (tienen que ser el mismo). | Revisa los dos; corrige el correo en el que falte. |
+| Aviso «Cloudflare Access no se actualizó» | El token `CF_API_TOKEN` venció o perdió el permiso *Access: Policies Write*. | Agrega el correo a mano (arriba), renueva el token en el dashboard y guárdalo: `npx wrangler secret put CF_API_TOKEN`. |
+| Aviso en la Bandeja «El respaldo diario falló: …» | Venció el token de GitHub, cambió el repo o dejó de ser privado (el Worker aborta antes de mandar datos). | Ajustes → «Respaldo de la base» dice el motivo. Renueva el token ([Conectar GitHub](#conectar-github-una-vez-lo-hace-dirección)) y da «Respaldar ahora». |
+| Una subida se detiene | Se cortó la conexión a medio archivo. | «Reintentar» manda solo las partes que faltan. Más de 4 GB no se acepta. |
+| Aviso de almacenamiento al 80 % | Las entregas se acercan a los 10 GB gratis de R2. | Vacía la papelera de Entregas o decide si se paga el excedente. |
+
+**Fechas para el calendario:** el token de GitHub del respaldo vence el **15 de octubre de 2027**; revisa en el dashboard cuándo vence `CF_API_TOKEN`. Renueva cada uno unos días antes.
+
+### Ver qué pasó (registros)
+
+Los errores del servidor quedan registrados (no se le muestran a la persona). Para verlos en vivo mientras alguien repite el problema:
+
+```bash
+npx wrangler tail
+```
+
+O en el dashboard: Workers → `eureka-hub` → Logs.
+
+### Regresar a la versión anterior del código
+
+Si algo se rompe justo después de desplegar:
+
+```bash
+npx wrangler deployments list
+```
+
+```bash
+npx wrangler rollback
+```
+
+`rollback` regresa a la versión anterior del Worker en segundos. Solo cambia el código: no toca la base ni los archivos.
+
+### Regresar los datos
+
+Para recuperar la base de un día anterior, sigue [Restaurar](#restaurar). El respaldo de cada día está en el repo privado de respaldos, en `datos/AAAA-MM-DD.json`; se descarga con:
+
+```bash
+gh api repos/<dueño>/eureka-hub-backups/contents/datos/AAAA-MM-DD.json -H "Accept: application/vnd.github.raw" > respaldos/AAAA-MM-DD.json
+```
+
+Restaura primero en local para revisar que sea el que buscas y después en producción. Borra la copia local al terminar: lleva datos personales.
+
+### Límites
+
+| Qué | Límite | Qué pasa al pasarlo |
+|---|---|---|
+| Archivo de entrega | 4 GB (`MAX_ARCHIVO_MB`) | No se acepta y se dice por qué. |
+| Un elemento (tarea, tablero con imágenes…) | 1.5 MB | Ese cambio no se guarda y aparece el motivo; lo demás sí se guarda. |
+| Cambios por envío | 300 | La pantalla manda de 250 en 250 (p. ej., una importación grande). |
+| Almacenamiento de entregas | 10 GB gratis de R2 | Aviso desde el 80 %; el excedente se cobra por GB al mes. |
+
 ## Desplegar
 
 Si hay migraciones nuevas en `migrations/`, primero se aplican a la base de producción:
@@ -185,7 +268,7 @@ npm run deploy
 ## Estructura
 
 ```
-src/            Worker: index.js (entrada y cron), api.js (rutas), entregas.js (archivos en R2), respaldo.js y formato-respaldo.js (F5), contactos.js, entidades.js, merge3.js, access.js
+src/            Worker: index.js (entrada y cron), api.js (rutas), entregas.js (archivos en R2), respaldo.js y formato-respaldo.js (F5), limpieza.js, contactos.js, entidades.js, merge3.js, access.js, access-politica.js
 public/         la app (prototipo sin datos de ejemplo, en modo servidor)
 migrations/     migraciones de D1
 seed/           base.json (configuración inicial); equipo.local.json fuera de git
@@ -203,5 +286,5 @@ docs/prototipo/ prototipo original de referencia (fuera de git)
 | F2 | Entregas con R2 | hecho (falta la prueba con un video real en producción) |
 | F3 | Área general, aprobaciones, inbox (y pendientes de junta) | hecho |
 | F4 | Contactos y base de datos (y tema claro u oscuro) | hecho |
-| F5 | Respaldo y restauración | hecho (falta conectar el repo privado de GitHub) |
-| F6 | Endurecimiento y README de operación | pendiente |
+| F5 | Respaldo y restauración | hecho (repo privado conectado el 15 oct 2026) |
+| F6 | Endurecimiento (errores visibles, teclado, contraste) y README de operación | hecho |

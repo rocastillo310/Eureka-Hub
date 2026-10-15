@@ -13,7 +13,7 @@
 //
 // El servidor decide la llave del objeto, el tipo (por la extensión, no por lo que diga el navegador), el número de
 // versión, el autor y la hora. La entidad `entrega` y la `actividad` solo las escribe el servidor.
-import { guardarDelServidor, leerEntidad } from './entidades.js';
+import { guardarDelServidor, leerEntidad, ErrorVisible } from './entidades.js';
 
 const MIB = 1024 * 1024;
 const CAB = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
@@ -85,7 +85,7 @@ function disposicion(tipo, nombre) {
 
 async function leerJson(request) {
 	const texto = await request.text();
-	if (texto.length > 20_000) throw new Error('demasiado grande');
+	if (texto.length > 20_000) throw new ErrorVisible(413, 'La solicitud es demasiado grande');
 	return JSON.parse(texto);
 }
 

@@ -46,5 +46,10 @@ export async function guardarDelServidor(env, tipo, id, mutar, por) {
 		}
 		if (await escribir(env, { tipo, id }, cur, JSON.stringify(nuevo), false, por)) return nuevo;
 	}
-	throw new Error('no se pudo guardar por cambios simultáneos');
+	throw new ErrorVisible(409, 'Varias personas lo cambiaron al mismo tiempo; vuelve a intentarlo');
+}
+
+// Error con un mensaje pensado para la persona (sale tal cual en la pantalla) y su código HTTP.
+export class ErrorVisible extends Error {
+	constructor(estado, mensaje) { super(mensaje); this.estado = estado; }
 }
