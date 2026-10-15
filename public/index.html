@@ -1088,17 +1088,20 @@ function popHtml(){
 }
 
 function agModal(m){
-  var u=me(),x=m.id?S.agenda.find(function(z){return z.id===m.id}):null,k=x?x.kind:m.k,d=x?x.date:S.agDay,can=!x||u.role==="admin"||x.owner===u.id||(esEquipo(x)&&x.by===u.id);
+  var u=me(),x=m.id?S.agenda.find(function(z){return z.id===m.id}):null,k=x?x.kind:m.k,d=x?x.date:S.agDay,full=puedeTodoAg(x,u);
+  // Una actividad para todo el equipo la puede editar cualquiera (p. ej., para poner el enlace de la reunión);
+  // eliminarla o cambiar para quién es lo hace quien la creó o Dirección.
+  var can=full||esEquipo(x);
   var para=x?x.owner:(m.para||u.id);
   var dis=can?"":" disabled";
   return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(x?"Editar":"Nueva")+' '+(k==="tarea"?"tarea":"actividad")+'</h2><button class="btn" data-act="close">Cerrar</button></div><form id="agForm" class="panel" style="display:flex;flex-direction:column;gap:12px">'+
-  '<div class="two"><div class="field"><label for="ag-kind">Tipo</label><select id="ag-kind"'+dis+'><option value="act"'+(k==="act"?" selected":"")+'>Actividad</option><option value="tarea"'+(k==="tarea"?" selected":"")+'>Tarea</option></select></div><div class="field"><label for="ag-owner">Para</label><select id="ag-owner"'+(can?"":" disabled")+'><option value="todos"'+(para==="todos"?" selected":"")+'>Todo el equipo</option>'+activos([para]).filter(function(z){return u.role==="admin"||z.id===u.id||z.id===para}).map(function(z){return '<option value="'+z.id+'"'+(para===z.id?" selected":"")+'>'+esc(z.name)+'</option>'}).join("")+'</select></div></div>'+
+  '<div class="two"><div class="field"><label for="ag-kind">Tipo</label><select id="ag-kind"'+dis+'><option value="act"'+(k==="act"?" selected":"")+'>Actividad</option><option value="tarea"'+(k==="tarea"?" selected":"")+'>Tarea</option></select></div><div class="field"><label for="ag-owner">Para</label><select id="ag-owner"'+(full?"":" disabled")+'><option value="todos"'+(para==="todos"?" selected":"")+'>Todo el equipo</option>'+activos([para]).filter(function(z){return u.role==="admin"||z.id===u.id||z.id===para}).map(function(z){return '<option value="'+z.id+'"'+(para===z.id?" selected":"")+'>'+esc(z.name)+'</option>'}).join("")+'</select></div></div>'+
   '<div class="field"><label for="ag-title">Título</label><input id="ag-title" required value="'+esc(x?x.title:"")+'"'+dis+'></div>'+
   '<div class="two"><div class="field"><label for="ag-date">Fecha</label><input id="ag-date" type="date" required value="'+d+'"'+dis+'></div><div class="field"><label for="ag-time">Hora (opcional)</label><input id="ag-time" type="time" value="'+esc(x?x.time:"")+'"'+dis+'></div></div>'+
   '<div class="field"><label for="ag-acc">Cuenta (opcional)</label><select id="ag-acc"'+dis+'><option value="">Sin cuenta</option>'+S.accounts.map(function(a){return '<option value="'+a.id+'"'+(x&&x.acc===a.id?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div>'+
   '<div class="field"><label for="ag-link">Enlace de la reunión (Google Meet u otro, opcional)</label><input id="ag-link" type="text" inputmode="url" autocapitalize="none" spellcheck="false" placeholder="meet.google.com/abc-defg-hij" value="'+esc(x&&x.link||"")+'"'+dis+'></div>'+
   '<div class="field"><label for="ag-notes">Notas</label><textarea id="ag-notes" style="min-height:70px"'+dis+'>'+esc(x?x.notes:"")+'</textarea></div>'+(x&&entrarBtn(x)?'<div>'+entrarBtn(x)+'</div>':"")+
-  (can?'<div class="actions"><button class="btn primary" type="submit">Guardar</button>'+(x?'<button class="btn danger" type="button" data-act="delag" data-id="'+x.id+'">'+(S.armed==="delag"+x.id?seguro("eliminar esta actividad"):"Eliminar")+'</button>':"")+'</div>':'<div class="muted small">Solo el responsable o Dirección pueden editar esto.</div>')+'</form>';
+  (can?'<div class="actions"><button class="btn primary" type="submit">Guardar</button>'+(x&&full?'<button class="btn danger" type="button" data-act="delag" data-id="'+x.id+'">'+(S.armed==="delag"+x.id?seguro("eliminar esta actividad"):"Eliminar")+'</button>':"")+'</div>'+(full?"":'<div class="muted small">Cualquiera del equipo puede editarla. Eliminarla o cambiar para quién es lo hace quien la creó o Dirección.</div>'):'<div class="muted small">Solo el responsable o Dirección pueden editar esto.</div>')+'</form>';
 }
 var KC={blue:"Azul",purple:"Morado",red:"Rojo",orange:"Naranja",green:"Verde"};
 var TONE={pro:["--s-pro-bg","--s-pro"],cli:["--s-cli-bg","--s-cli"],red:["--s-red-bg","--s-red"],pub:["--s-pub-bg","--s-pub"]};
@@ -2146,7 +2149,8 @@ document.addEventListener("mousedown",function(e){
 },true);
 
 // 4. Actividades para todo el equipo (p. ej., una reunión) con botón para entrar a Google Meet.
-function esEquipo(x){return x.owner==="todos"}
+function esEquipo(x){return !!x&&x.owner==="todos"}
+function puedeTodoAg(x,u){return !x||u.role==="admin"||x.owner===u.id||(esEquipo(x)&&x.by===u.id)}
 function entrarBtn(x){return x.link&&urlValida(x.link)?'<a class="btn small primary" href="'+esc(x.link)+'" target="_blank" rel="noopener">Entrar a la reunión</a>':""}
 function cuandoTexto(x){var d=dayDiff(x.date);return(d===0?"Hoy":d===1?"Mañana":fdate(x.date))+(x.time?" · "+x.time:"")}
 function proxEquipo(dias){var hoy=iso(0),fin=iso(dias||7);return S.agenda.filter(function(x){return esEquipo(x)&&!x.done&&x.date>=hoy&&x.date<=fin}).sort(function(a,b){return(a.date+(a.time||"99"))<(b.date+(b.time||"99"))?-1:1})}
@@ -2430,7 +2434,7 @@ function act(a,el){
   case"newag":S.modal={kind:"ag",id:null,k:el.getAttribute("data-k"),para:el.getAttribute("data-para")||""};return render();
   case"openag":S.modal={kind:"ag",id:id};return render();
   case"toggleag":var tx2=S.agenda.find(function(z){return z.id===id});if(tx2){tx2.done=!tx2.done;save()}return render();
-  case"delag":if(!arm("delag"+id))return;S.agenda=S.agenda.filter(function(z){return z.id!==id});S.modal=null;save();return toast("Eliminado");
+  case"delag":if(!puedeTodoAg(S.agenda.find(function(z){return z.id===id}),me()))return deny();if(!arm("delag"+id))return;S.agenda=S.agenda.filter(function(z){return z.id!==id});S.modal=null;save();return toast("Eliminado");
   case"kmine":S.kf.mine=!S.kf.mine;return render();
   case"kcols":S.modal={kind:"kcols"};return render();
   case"newkn":S.modal={kind:"kn",id:null,c:el.getAttribute("data-c")};return render();
@@ -2590,11 +2594,13 @@ function handleSubmit(form){
     var para0=val("ag-owner"),lnk=normalizarUrl(val("ag-link"));
     if(lnk&&!urlValida(lnk))return toast("Revisa el enlace de la reunión");
     var rec={kind:val("ag-kind"),title:val("ag-title").trim(),date:val("ag-date"),time:val("ag-time"),owner:para0==="todos"||u0.role==="admin"?para0:u0.id,acc:val("ag-acc"),notes:val("ag-notes"),link:lnk};
-    var cambiaPara=!ex||ex.owner!==rec.owner;
+    if(ex&&!puedeTodoAg(ex,u0))rec.owner=ex.owner; // quien no la creó no cambia para quién es
+    var cambiaPara=!ex||ex.owner!==rec.owner,nuevoEnlace=ex&&!ex.link&&rec.link;
     if(ex){Object.keys(rec).forEach(function(q){ex[q]=rec[q]})}else{rec.id="a"+nid();rec.done=false;rec.by=u0.id;S.agenda.push(rec)}
     var cuando=cuandoTexto(rec).toLowerCase();
     if(cambiaPara&&rec.owner==="todos")avisarTodos(uname(u0.id)+" agendó para todo el equipo: «"+rec.title+"», "+cuando+(rec.link?" (con enlace para entrar)":""),"");
     else if(cambiaPara&&rec.owner!==u0.id)notify(rec.owner,uname(u0.id)+" te agendó «"+rec.title+"», "+cuando,"");
+    else if(nuevoEnlace&&rec.owner==="todos")avisarTodos(uname(u0.id)+" puso el enlace para entrar a «"+rec.title+"», "+cuando,"");
     S.agDay=rec.date;S.agMonth=rec.date.slice(0,7);S.modal=null;save();toast(ex?"Cambios guardados":"Agregado a la agenda");
   }else if(id==="reasigForm"){
     reasignar();
