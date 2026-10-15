@@ -1648,6 +1648,7 @@ function vAjustes(){
   if(!SRV)return h+'<div class="empty">Los demás ajustes aparecen al usar la plataforma en línea.</div>';
   cargarCfg();
   h+=ajAprobPanel();
+  h+=respPanel();
   var u=usoBytes(),pct=Math.min(100,u.total/GRATIS_BYTES*100),alto=pct>=80,porCuenta={};
   S.entregas.forEach(function(e){porCuenta[e.cuentaId]=(porCuenta[e.cuentaId]||0)+enTam(e)});
   h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Almacenamiento de entregas</h3><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:baseline"><span><b class="tnum" style="font-size:22px;font-family:var(--font-display)">'+fbytes(u.total)+'</b> <span class="muted">de 10 GB gratis</span></span><b class="tnum"'+(alto?' style="color:var(--bad)"':"")+'>'+(u.total&&pct<1?"menos de 1":Math.round(pct))+' %</b></div><span class="bar'+(alto?" alto":"")+'" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(pct)+'" aria-label="Almacenamiento usado"><i style="width:'+pct+'%"></i></span>'+
@@ -2034,6 +2035,25 @@ function crearSubcarpeta(){
   S.lists.push({id:"l"+nid(),acc:a.id,type:"redes",name:monthLabel(ym(0)),grupo:n},{id:"l"+nid(),acc:a.id,type:"diseno",name:"Diseño",grupo:n});
   S.modal=null;S.view="space";S.spaceId=a.id;S.toTop=true;save();toast("Subcarpeta «"+n+"» creada con sus dos listas");
 }
+/* ---------- Respaldo (F5): estado y «Respaldar ahora» para Dirección ---------- */
+var RESP={cargado:false,cargando:false,datos:null,error:"",corriendo:false};
+function cargarResp(forzar){
+  if(!SRV||!isAdmin()||RESP.cargando||(RESP.cargado&&!forzar))return;
+  RESP.cargando=true;
+  api("respaldo/estado").then(function(r){RESP.datos=r;RESP.error="";RESP.cargado=true;RESP.cargando=false;if(S.view==="ajustes")render()}).catch(function(e){RESP.error=(e&&e.message)||"No se pudo leer";RESP.cargando=false;RESP.cargado=true;if(S.view==="ajustes")render()});
+}
+function respPanel(){
+  if(!SRV||!isAdmin())return "";
+  cargarResp();
+  var d=RESP.datos,u=d&&d.ultimo,h='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Respaldo de la base</h3>'+(u?'<span class="pill '+(u.ok?"st-publicada":"risk-atrasada")+'">'+(u.ok?"Último respaldo correcto":"El último respaldo falló")+'</span>':"")+'</div>';
+  if(!d)return h+'<div class="muted small">'+(RESP.error?esc(RESP.error):"Cargando…")+'</div></div>';
+  h+='<p class="muted small" style="margin:0">Cada día a las 3:00 a. m. se guarda la base completa en el repo privado <b>'+esc(d.repo||"(sin configurar)")+'</b> de GitHub, junto con la lista de archivos de Entregas. Los archivos en sí no se copian ahí (GitHub no acepta archivos grandes).</p>';
+  if(!d.configurado)h+='<div class="banner" role="alert">Falta conectar GitHub: crea el repo privado y guarda su token como secreto del Worker (pasos en el README, sección «Respaldo»).</div>';
+  if(u)h+='<div class="small">'+(u.ok?'Guardado el '+ftime(u.en)+(u.origen==="manual"?" (a mano)":"")+': '+u.elementos+' elementos y '+u.archivos+' archivos registrados. '+(u.commit&&u.repo?'<a href="https://github.com/'+esc(u.repo)+'/commit/'+esc(u.commit)+'" target="_blank" rel="noopener">Ver en GitHub</a>':""):'<b style="color:var(--bad)">Falló el '+ftime(u.en)+':</b> '+esc(u.motivo))+'</div>';
+  else if(d.configurado)h+='<div class="muted small">Aún no se ha hecho ningún respaldo.</div>';
+  return h+'<button class="btn" data-act="respahora" style="align-self:flex-start"'+(RESP.corriendo||!d.configurado?" disabled":"")+'>'+(RESP.corriendo?"Respaldando…":"Respaldar ahora")+'</button></div>';
+}
+
 /* ---------- Modales ---------- */
 function modal(){
   var m=S.modal,h='<div class="overlay" data-act="closebg"><div class="drawer" role="dialog" aria-modal="true">';
@@ -2291,6 +2311,9 @@ function act(a,el){
     if(S.accSel===id)S.accSel="";
     S.modal=null;S.view="spaces";S.toTop=true;save();return toast("Cuenta «"+da.name+"» eliminada");
   case"subcnueva":S.modal={kind:"subcarpeta",acc:id};S.pop=null;return render();
+  case"respahora":
+    if(RESP.corriendo)return;RESP.corriendo=true;render();
+    return api("respaldo/ahora",{}).then(function(r){RESP.corriendo=false;toast(r.ok?"Respaldo guardado en GitHub":"El respaldo falló: "+r.motivo);cargarResp(true)}).catch(function(e){RESP.corriendo=false;toast((e&&e.message)||"No se pudo respaldar");render()});
   case"tema":return ponerTema(el.getAttribute("data-v")||"");
   case"ctnuevo":S.modal={kind:"contacto",acc:el.getAttribute("data-acc")||""};S.pop=null;return render();
   case"ctopen":S.modal={kind:"contacto",id:id};S.pop=null;return render();

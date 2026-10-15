@@ -10,8 +10,13 @@
 
 	"vars": {
 		// Tamaño máximo por archivo entregado (F2). 4 GB, confirmado por Rodrigo el 12 oct 2026.
-		"MAX_ARCHIVO_MB": "4096"
+		"MAX_ARCHIVO_MB": "4096",
+		// Repo PRIVADO de los respaldos (F5). El token va como secreto: GITHUB_TOKEN_RESPALDO.
+		"RESPALDO_REPO": "rocastillo310/eureka-hub-backups"
 	},
+
+	// Respaldo diario (F5). Los Cron Triggers usan UTC: 09:00 UTC = 3:00 a. m. en Guadalajara (UTC-6, sin horario de verano).
+	"triggers": { "crons": ["0 9 * * *"] },
 
 	"assets": {
 		"directory": "./public",

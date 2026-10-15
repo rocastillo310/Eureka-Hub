@@ -114,6 +114,60 @@ Se suben desde la vista **Entregas** (o arrastrando archivos a cualquier pantall
 
 Ajustes → **Apariencia**: claro, oscuro o «como el sistema». Se guarda por persona y se aplica antes de pintar la pantalla.
 
+## Respaldo y restauración (F5)
+
+Cada día a las **3:00 a. m. (Guadalajara)** el Worker guarda en el repo **privado** `rocastillo310/eureka-hub-backups`, en un solo commit:
+
+- `datos/AAAA-MM-DD.json`: la base completa (también lo borrado), lista para restaurar.
+- `archivos-r2/AAAA-MM-DD.json`: la lista de archivos de Entregas en R2 (llave, tamaño y huella). **Los archivos no se copian** (ver abajo).
+
+Antes de escribir, el Worker revisa por la API de GitHub que el repo exista, sea el configurado y sea **privado**; si no, **aborta sin mandar nada**. Cada resultado queda en Ajustes → «Respaldo de la base» (solo Dirección), con botón «Respaldar ahora». Si el respaldo automático falla, Dirección recibe un aviso en la Bandeja.
+
+Los Cron Triggers corren en UTC: `0 9 * * *` en `wrangler.jsonc` son las 3:00 a. m. en Guadalajara (UTC−6, sin horario de verano).
+
+### Conectar GitHub (una vez, lo hace Dirección)
+
+1. Crea el repo: <https://github.com/new> → nombre `eureka-hub-backups` → **Private** → Create repository.
+2. Crea el token: GitHub → Settings → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate new token.
+   - Nombre: `eureka-hub-respaldo`. Vencimiento: 1 año (pon un recordatorio; si vence, el respaldo falla y llega el aviso).
+   - Repository access: **Only select repositories** → `eureka-hub-backups`.
+   - Permissions → Repository permissions → **Contents: Read and write** (Metadata queda en lectura sola).
+3. Guárdalo como secreto del Worker (pega el token cuando lo pida; nunca en el chat ni en el repo):
+
+```bash
+npx wrangler secret put GITHUB_TOKEN_RESPALDO
+```
+
+En Windows, si PowerShell bloquea `npx`, usa `npx.cmd`.
+
+### Restaurar
+
+Descarga el `datos/AAAA-MM-DD.json` que quieras del repo de respaldos (o haz una copia al momento con `npm run respaldo -- --remote`) y:
+
+```bash
+npm run restore -- respaldos/2026-10-13.json
+```
+
+Eso restaura la base **local**. Para **producción**:
+
+```bash
+npm run restore -- respaldos/2026-10-13.json --remote --si-produccion
+```
+
+- Antes de tocar producción guarda una copia de cómo estaba en `respaldos/antes-de-restaurar-….json` (para deshacer).
+- Deja la base igual al respaldo: lo que cambió se regresa y lo creado después queda borrado. Al final **compara** la base contra el respaldo y avisa si algo no coincide.
+- Las pantallas abiertas reciben los cambios solas en su siguiente sincronización.
+- Los registros grandes (más de 100 KB, el máximo por sentencia de D1) se escriben en pedazos.
+- `respaldos/` está fuera de git: los respaldos llevan datos personales.
+
+Probado de punta a punta en la base local: exportar 68 elementos (uno de 240 KB), vaciar la base, restaurar y comparar: idénticos.
+
+### Límite: los archivos de R2 no quedan en GitHub
+
+GitHub bloquea archivos de más de 100 MiB y advierte desde 50 MiB (documentación de GitHub, «About large files on GitHub»), y un reel pesa hasta 4 GB. Por eso el respaldo diario guarda solo la **lista** de archivos (para saber qué había y comprobar una copia), no los archivos.
+
+**Propuesta (sin implementar, falta tu decisión):** copia semanal de los archivos de R2 a la unidad compartida de Google Drive del equipo con [rclone](https://rclone.org/), que copia solo lo nuevo o cambiado, programada en una computadora de la oficina. Ventajas: el equipo ya vive en Drive y su espacio probablemente ya está pagado; la copia queda fuera de Cloudflare (protege si algo le pasa a la cuenta). Necesita un token de R2 de solo lectura y conectar rclone a Drive una vez. Alternativas: un segundo bucket de R2 (simple, pero cuenta contra los mismos 10 GB gratis y no protege si falla la cuenta) o Backblaze B2 (barato, otro proveedor más).
+
 ## Desplegar
 
 Si hay migraciones nuevas en `migrations/`, primero se aplican a la base de producción:
@@ -129,11 +183,11 @@ npm run deploy
 ## Estructura
 
 ```
-src/            Worker: index.js (entrada), api.js (rutas), entregas.js (archivos en R2), entidades.js, merge3.js, access.js
+src/            Worker: index.js (entrada y cron), api.js (rutas), entregas.js (archivos en R2), respaldo.js y formato-respaldo.js (F5), contactos.js, entidades.js, merge3.js, access.js
 public/         la app (prototipo sin datos de ejemplo, en modo servidor)
 migrations/     migraciones de D1
 seed/           base.json (configuración inicial); equipo.local.json fuera de git
-scripts/        seed-equipo.mjs
+scripts/        seed-equipo.mjs, respaldo.mjs, restaurar.mjs
 tests/          pruebas (node --test)
 docs/prototipo/ prototipo original de referencia (fuera de git)
 ```
@@ -147,5 +201,5 @@ docs/prototipo/ prototipo original de referencia (fuera de git)
 | F2 | Entregas con R2 | hecho (falta la prueba con un video real en producción) |
 | F3 | Área general, aprobaciones, inbox (y pendientes de junta) | hecho |
 | F4 | Contactos y base de datos (y tema claro u oscuro) | hecho |
-| F5 | Respaldo y restauración | pendiente |
+| F5 | Respaldo y restauración | hecho (falta conectar el repo privado de GitHub) |
 | F6 | Endurecimiento y README de operación | pendiente |

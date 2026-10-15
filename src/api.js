@@ -7,6 +7,7 @@ import { correosDelEquipo, sincronizarPoliticaAccess } from './access-politica.j
 import { aEntidad, escribir } from './entidades.js';
 import { manejarEntregas } from './entregas.js';
 import { prepararContacto } from './contactos.js';
+import { respaldar, estadoRespaldo } from './respaldo.js';
 
 export const TIPOS = new Set(['user', 'account', 'list', 'task', 'cal', 'ag', 'auto', 'inbox', 'note', 'cols', 'stat', 'seen', 'pref', 'board', 'entrega', 'actividad', 'ajuste', 'contacto']);
 // Solo el rol admin escribe estos tipos (sección 5 del prompt).
@@ -234,6 +235,14 @@ export async function manejarApi(request, env) {
 				if (!entidades.some((e) => e.tipo === r.tipo && e.id === r.id)) entidades.push(await estadoActual(env, r.tipo, r.id));
 			}
 			return resp({ entidades, cursor, mas, ...(rechazados.length ? { rechazados } : {}), ...(aviso ? { aviso } : {}) });
+		}
+
+		// Respaldo (F5): solo Dirección ve el estado y lanza uno a mano.
+		if (ruta === 'respaldo/estado' || ruta === 'respaldo/ahora') {
+			if (!q.usuario) return error(401, q.motivo || 'No autenticado');
+			if (q.usuario.role !== 'admin') return error(403, 'Solo Dirección');
+			if (ruta === 'respaldo/estado' && metodo === 'GET') return resp({ repo: (env.RESPALDO_REPO || '').trim() || null, configurado: !!(env.RESPALDO_REPO && env.GITHUB_TOKEN_RESPALDO), ultimo: await estadoRespaldo(env) });
+			if (ruta === 'respaldo/ahora' && metodo === 'POST') return resp(await respaldar(env, { origen: 'manual' }));
 		}
 
 		if (ruta.startsWith('entregas/')) {
