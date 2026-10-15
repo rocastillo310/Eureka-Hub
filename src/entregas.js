@@ -102,7 +102,7 @@ async function ajustesAprobacion(env) {
 }
 async function equipo(env) {
 	const r = await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'user' AND borrado = 0").all();
-	return (r.results || []).map((f) => JSON.parse(f.datos));
+	return (r.results || []).map((f) => JSON.parse(f.datos)).filter((u) => !u.baja); // quien está dado de baja no aprueba ni recibe avisos
 }
 const puedeAprobar = (u, e, aj) => !!u.aprueba && (aj.autorAprueba || u.id !== e.subidoPor);
 

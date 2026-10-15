@@ -5,6 +5,7 @@ import worker from '../src/index.js';
 import { d1Falso } from './d1-falso.js';
 import { llavesDePrueba, EQUIPO, AUD } from './jwt-prueba.js';
 import { _reiniciarCache } from '../src/access.js';
+import { correosDelEquipo } from '../src/access-politica.js';
 
 const { buscar, identidad } = await llavesDePrueba();
 globalThis.fetch = buscar; // las llaves públicas de Access salen de aquí, no de la red
@@ -227,4 +228,31 @@ test('una solicitud que no es JSON responde 400 con un mensaje claro', async () 
 	const r = await worker.fetch(new Request(PROD + '/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', 'Cf-Access-Jwt-Assertion': await identidad(ADMIN.email) }, body: '{no es json' }), env);
 	assert.equal(r.status, 400);
 	assert.match((await r.json()).error, /JSON/);
+});
+
+// ---------- dar de baja ----------
+test('dar de baja: la persona ya no entra, sale de la lista de Access y sus datos se conservan', async () => {
+	const env = await entorno();
+	const deBaja = { ...NORMAL, aprueba: false, baja: { en: 'ahora', por: ADMIN.id } };
+	const s = await sync(env, [{ tipo: 'user', id: NORMAL.id, base: NORMAL, datos: deBaja }], { como: ADMIN.email });
+	assert.equal(s.estado, 200);
+	assert.equal(s.json.rechazados, undefined);
+	const yo = await pedir(env, 'yo', { como: NORMAL.email });
+	assert.equal(yo.json.yo, null);
+	assert.match(yo.json.aviso, /dado de baja/);
+	assert.equal((await sync(env, [], { como: NORMAL.email })).estado, 401);
+	assert.deepEqual(await correosDelEquipo(env), [ADMIN.email]);
+	assert.equal((await fila(env, 'user', NORMAL.id)).name, NORMAL.name, 'sigue en la base con su nombre para el historial');
+	// Reactivar le devuelve el acceso.
+	await sync(env, [{ tipo: 'user', id: NORMAL.id, base: deBaja, datos: { ...NORMAL } }], { como: ADMIN.email });
+	assert.equal((await pedir(env, 'yo', { como: NORMAL.email })).json.yo, NORMAL.id);
+});
+
+test('nadie se da de baja a sí mismo y siempre queda una persona de Dirección activa', async () => {
+	const env = await entorno();
+	const yo = await sync(env, [{ tipo: 'user', id: ADMIN.id, base: ADMIN, datos: { ...ADMIN, baja: { en: 'ahora', por: ADMIN.id } } }], { como: ADMIN.email });
+	assert.match(yo.json.rechazados[0].motivo, /a ti mismo/);
+	const rol = await sync(env, [{ tipo: 'user', id: ADMIN.id, base: ADMIN, datos: { ...ADMIN, role: 'community' } }], { como: ADMIN.email });
+	assert.match(rol.json.rechazados[0].motivo, /Dirección activa/);
+	assert.equal((await fila(env, 'user', ADMIN.id)).role, 'admin');
 });
