@@ -191,3 +191,40 @@ test('las rutas fuera de /api se sirven como archivos estáticos', async () => {
 	const r = await worker.fetch(new Request(PROD + '/'), env);
 	assert.equal(await r.text(), 'estático');
 });
+
+// ---------- F6: errores visibles ----------
+test('un cambio demasiado grande se rechaza solo, con su motivo, y lo demás sí se guarda', async () => {
+	const env = await entorno();
+	const enorme = { id: 'big', desc: 'x'.repeat(1_600_000) };
+	const s = await sync(env, [
+		{ tipo: 'task', id: 'big', base: null, datos: enorme },
+		{ tipo: 'task', id: 'ok', base: null, datos: { id: 'ok', title: 'Normal' } },
+	], { como: ADMIN.email });
+	assert.equal(s.estado, 200);
+	assert.deepEqual(s.json.rechazados.map((r) => r.id), ['big']);
+	assert.match(s.json.rechazados[0].motivo, /demasiado grande/);
+	assert.equal(await fila(env, 'task', 'big'), null);
+	assert.equal((await fila(env, 'task', 'ok')).title, 'Normal');
+});
+
+test('un error inesperado responde 500 con un mensaje para la persona, sin detalles internos', async () => {
+	const env = await entorno();
+	const original = console.error;
+	console.error = () => {};
+	try {
+		env.DB.prepare = () => { throw new Error('D1_ERROR: detalle interno'); };
+		const r = await pedir(env, 'sync', { cuerpo: { desde: 0, cambios: [] }, como: ADMIN.email });
+		assert.equal(r.estado, 500);
+		assert.doesNotMatch(r.json.error, /D1_ERROR/);
+		assert.match(r.json.error, /avisa a Dirección/);
+	} finally {
+		console.error = original;
+	}
+});
+
+test('una solicitud que no es JSON responde 400 con un mensaje claro', async () => {
+	const env = await entorno();
+	const r = await worker.fetch(new Request(PROD + '/api/sync', { method: 'POST', headers: { 'content-type': 'application/json', 'Cf-Access-Jwt-Assertion': await identidad(ADMIN.email) }, body: '{no es json' }), env);
+	assert.equal(r.status, 400);
+	assert.match((await r.json()).error, /JSON/);
+});

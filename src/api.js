@@ -4,7 +4,7 @@
 import { merge3, sj } from './merge3.js';
 import { verificarAccess } from './access.js';
 import { correosDelEquipo, sincronizarPoliticaAccess } from './access-politica.js';
-import { aEntidad, escribir } from './entidades.js';
+import { aEntidad, escribir, ErrorVisible } from './entidades.js';
 import { manejarEntregas } from './entregas.js';
 import { prepararContacto } from './contactos.js';
 import { respaldar, estadoRespaldo } from './respaldo.js';
@@ -43,7 +43,7 @@ const error = (estado, mensaje) => resp({ error: mensaje }, estado);
 
 async function leerJson(request, maximo = 6_000_000) {
 	const texto = await request.text();
-	if (texto.length > maximo) throw new Error('demasiado grande');
+	if (texto.length > maximo) throw new ErrorVisible(413, 'La solicitud es demasiado grande');
 	return JSON.parse(texto);
 }
 
@@ -108,10 +108,10 @@ async function aplicarCambio(env, c, por) {
 		const nuevo = existe ? merge3(c.base, c.datos, JSON.parse(cur.datos)) : c.datos;
 		if (existe && sj(nuevo) === sj(JSON.parse(cur.datos))) return; // nada que cambiar
 		const texto = JSON.stringify(nuevo);
-		if (texto.length > MAX_ENTIDAD) throw new Error('elemento demasiado grande');
+		if (texto.length > MAX_ENTIDAD) throw new ErrorVisible(413, 'Es demasiado grande para guardarse (máximo 1.5 MB por elemento)');
 		if (await escribir(env, c, cur, texto, false, por)) return;
 	}
-	throw new Error('no se pudo guardar por cambios simultáneos');
+	throw new ErrorVisible(409, 'Varias personas lo cambiaron al mismo tiempo; vuelve a intentarlo');
 }
 
 function validarCambio(c) {
@@ -220,7 +220,15 @@ export async function manejarApi(request, env) {
 					if (k.motivo) { rechazados.push({ tipo: c.tipo, id: c.id, motivo: k.motivo }); continue; }
 					c.datos = k.datos;
 				}
-				await aplicarCambio(env, c, q.usuario.id);
+				// Un cambio que no se puede guardar se rechaza solo: si tronara toda la solicitud, la pantalla lo reintentaría
+				// para siempre y nada de lo demás se guardaría.
+				try {
+					await aplicarCambio(env, c, q.usuario.id);
+				} catch (err) {
+					if (!(err instanceof ErrorVisible)) console.error('sync', c.tipo, c.id, err);
+					rechazados.push({ tipo: c.tipo, id: c.id, motivo: err instanceof ErrorVisible ? err.message : 'Error del servidor al guardarlo' });
+					continue;
+				}
 				if (c.tipo === 'user') cambioEquipo = true;
 			}
 			// Si cambió el equipo, la lista de correos de Cloudflare Access se pone igual a la de la base.
@@ -252,6 +260,10 @@ export async function manejarApi(request, env) {
 
 		return error(404, 'Ruta no encontrada');
 	} catch (e) {
-		return error(e instanceof SyntaxError ? 400 : 500, e.message || 'Error del servidor');
+		if (e instanceof ErrorVisible) return error(e.estado, e.message);
+		if (e instanceof SyntaxError) return error(400, 'La solicitud no es JSON válido');
+		// Lo inesperado queda en los registros del Worker (`npx wrangler tail`); a la persona no se le muestran detalles internos.
+		console.error('api', metodo, ruta, e);
+		return error(500, 'Error del servidor. Si se repite, avisa a Dirección.');
 	}
 }
