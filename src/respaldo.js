@@ -123,8 +123,9 @@ export async function respaldar(env, { origen = 'cron', buscar = fetch, ahora = 
 		.bind('respaldo', JSON.stringify(res)).run();
 	if (!res.ok) {
 		console.log(JSON.stringify({ respaldo: 'falló', motivo: res.motivo }));
-		// Aviso en la Bandeja de Dirección cuando falla el respaldo automático.
-		if (origen === 'cron') {
+		// Aviso en la Bandeja de Dirección cuando falla el respaldo automático (si aún no se conecta GitHub, solo queda
+		// registrado en Ajustes, para no avisar cada noche).
+		if (origen === 'cron' && repo && token) {
 			const admins = ((await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'user' AND borrado = 0").all()).results || [])
 				.map((f) => JSON.parse(f.datos)).filter((u) => u.role === 'admin');
 			for (const u of admins) {

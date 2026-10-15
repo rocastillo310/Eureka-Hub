@@ -8,6 +8,7 @@ import { r2Falso } from './r2-falso.js';
 import { llavesDePrueba, EQUIPO, AUD } from './jwt-prueba.js';
 import { _reiniciarCache } from '../src/access.js';
 import { exportarBase, manifiestoR2, respaldar, fechaLocal } from '../src/respaldo.js';
+import { vaciarPapeleraNotas } from '../src/limpieza.js';
 import { sqlRestauracion, validarRespaldo, huella } from '../src/formato-respaldo.js';
 
 const { buscar: llavesAccess, identidad } = await llavesDePrueba();
@@ -147,8 +148,12 @@ test('si el repo NO es privado, se aborta sin mandar datos y Dirección recibe e
 test('se aborta si el token apunta a otro repo o falta la configuración', async () => {
 	const env = await base();
 	assert.match((await respaldar(env, { buscar: gitHubFalso({ nombre: 'otra/cosa' }).buscar, ahora })).motivo, /apunta a otra\/cosa/);
+	const avisos = async () => (await env.DB.prepare("SELECT COUNT(*) AS n FROM entidades WHERE tipo = 'inbox'").first()).n;
+	assert.equal(await avisos(), 1); // configurado pero mal: sí avisa a Dirección
 	const sinToken = { ...env, GITHUB_TOKEN_RESPALDO: '' };
 	assert.match((await respaldar(sinToken, { buscar: () => assert.fail('no debe llamar a GitHub'), ahora })).motivo, /Falta configurar/);
+	// Sin configurar no se avisa cada noche: solo queda registrado.
+	assert.equal(await avisos(), 1);
 });
 
 test('un repo recién creado y vacío se inicia con un README y luego recibe el respaldo', async () => {
@@ -169,4 +174,20 @@ test('solo Dirección consulta el estado del respaldo o lanza uno a mano', async
 	assert.equal((await pedir('respaldo/ahora', 'beto@agencia.test', 'POST')).status, 403);
 	const r = await (await pedir('respaldo/estado', 'ana@agencia.test')).json();
 	assert.deepEqual(r, { repo: 'agencia/respaldos', configurado: true, ultimo: null });
+});
+
+// ---------- papelera de la pizarra ----------
+test('la limpieza diaria borra para siempre las notas con 7 días o más en la papelera, y nada más', async () => {
+	const env = await base();
+	const hace = (dias) => new Date(ahora.getTime() - dias * 864e5).toISOString();
+	await poner(env, 'note', 'n1', { id: 'n1', title: 'Vieja', borrada: { por: 'ana', en: hace(8) } });
+	await poner(env, 'note', 'n2', { id: 'n2', title: 'Justo 7 días', borrada: { por: 'ana', en: hace(7) } });
+	await poner(env, 'note', 'n3', { id: 'n3', title: 'Reciente', borrada: { por: 'ana', en: hace(2) } });
+	await poner(env, 'note', 'n4', { id: 'n4', title: 'Activa' });
+	assert.equal(await vaciarPapeleraNotas(env, ahora), 2);
+	const vivas = (await env.DB.prepare("SELECT id FROM entidades WHERE tipo = 'note' AND borrado = 0 ORDER BY id").all()).results.map((f) => f.id);
+	assert.deepEqual(vivas, ['n3', 'n4']);
+	// El borrado sube el seq, así las pantallas abiertas lo reciben.
+	const f = await env.DB.prepare("SELECT seq, borrado FROM entidades WHERE tipo = 'note' AND id = 'n1'").first();
+	assert.equal(f.borrado, 1);
 });
