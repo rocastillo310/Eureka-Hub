@@ -45,6 +45,8 @@ npm test
 
 Cubren la mezcla de tres vías (`merge3`, servidor y copia de la pantalla), la verificación del JWT de Access, los permisos del servidor, el modo desarrollo y la sincronización entre dos personas.
 
+**Trabajo simultáneo:** con `npm run dev` corriendo, `node scripts/prueba-concurrencia.mjs 4 40` simula a 4 personas a la vez: cada una crea sus tareas y todas editan y comentan la misma tarea. Al final comprueba que no se perdió ningún cambio (15 oct 2026: 320 cambios en 4 s, 0 perdidos). Cada elemento se guarda por separado, los cambios a un mismo elemento se mezclan campo por campo (`merge3`) y las listas (comentarios, historial) se suman.
+
 ## Dar de alta al equipo
 
 El equipo real vive en `seed/equipo.local.json`, que **nunca** se commitea:
@@ -123,7 +125,7 @@ Cada día a las **3:00 a. m. (Guadalajara)** el Worker guarda en el repo **priva
 
 Antes de escribir, el Worker revisa por la API de GitHub que el repo exista, sea el configurado y sea **privado**; si no, **aborta sin mandar nada**. Cada resultado queda en Ajustes → «Respaldo de la base» (solo Dirección), con botón «Respaldar ahora». Si el respaldo automático falla, Dirección recibe un aviso en la Bandeja.
 
-Los Cron Triggers corren en UTC: `0 9 * * *` en `wrangler.jsonc` son las 3:00 a. m. en Guadalajara (UTC−6, sin horario de verano).
+Los Cron Triggers corren en UTC: `0 9 * * *` en `wrangler.jsonc` son las 3:00 a. m. en Guadalajara (UTC−6, sin horario de verano). El mismo cron, después del respaldo, vacía la papelera de la Pizarra Kanban (notas con 7 días o más; `src/limpieza.js`).
 
 ### Conectar GitHub (una vez, lo hace Dirección)
 
