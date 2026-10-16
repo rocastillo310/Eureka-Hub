@@ -66,20 +66,19 @@ test('editar conserva quién lo creó aunque lo edite otra persona', async () =>
 	assert.equal(k2.creadoPor, 'beto');
 });
 
-test('se rechazan contactos sin nombre, sin cuenta, con cuenta inexistente, correo inválido o campos de más', async () => {
+test('se rechazan contactos sin nombre, con cuenta inexistente, correo inválido o campos de más (sin cuenta sí se acepta)', async () => {
 	const env = await entorno();
 	const r = await sync(env, beto, [
 		nuevo({ id: 'a', cuentaId: 'c1', nombre: '  ' }),
-		nuevo({ id: 'b', nombre: 'Sin cuenta' }),
 		nuevo({ id: 'c', cuentaId: 'no-existe', nombre: 'X' }),
 		nuevo({ id: 'd', cuentaId: 'c1', nombre: 'X', correo: 'no-es-correo' }),
 		nuevo({ id: 'e', cuentaId: 'c1', nombre: 'X', html: '<script>' }),
 		nuevo({ id: 'f', cuentaId: 'c1', nombre: 'X', notas: 'x'.repeat(4001) }),
 		nuevo({ id: 'g', cuentaId: 'c1', nombre: 'Bien' }),
 	]);
-	assert.deepEqual(r.rechazados.map((x) => x.id), ['a', 'b', 'c', 'd', 'e', 'f']);
+	assert.deepEqual(r.rechazados.map((x) => x.id), ['a', 'c', 'd', 'e', 'f']);
 	assert.equal((await fila(env, 'g')).nombre, 'Bien');
-	for (const id of ['a', 'b', 'c', 'd', 'e', 'f']) assert.equal(await fila(env, id), null);
+	for (const id of ['a', 'c', 'd', 'e', 'f']) assert.equal(await fila(env, id), null);
 });
 
 test('borrar: solo Dirección o quien lo creó', async () => {
@@ -131,4 +130,18 @@ test('subcarpetas: cualquiera crea listas con subcarpeta, pero solo Dirección e
 	const base = JSON.parse(f.datos);
 	assert.match((await sync(env, beto, [{ tipo: 'list', id: 'l9', base, datos: null }])).rechazados[0].motivo, /Solo Dirección/);
 	assert.equal((await sync(env, ana, [{ tipo: 'list', id: 'l9', base, datos: null }])).rechazados, undefined);
+});
+
+test('un contacto puede no tener cuenta (prospecto, proveedor) y llevar su empresa', async () => {
+	const env = await entorno();
+	const r = await sync(env, beto, [nuevo({ id: 'k9', cuentaId: '', nombre: 'Max', empresa: 'Citroarom', telefono: '+52 33 0000 0000' })]);
+	assert.equal(r.rechazados, undefined, JSON.stringify(r.rechazados));
+	const k = await fila(env, 'k9');
+	assert.equal(k.empresa, 'Citroarom');
+	assert.equal(k.cuentaId, '');
+	const sinCampo = await sync(env, beto, [nuevo({ id: 'k10', nombre: 'Sin cuenta ni campo' })]);
+	assert.equal(sinCampo.rechazados, undefined);
+	// Si trae cuenta, tiene que existir.
+	const mala = await sync(env, beto, [nuevo({ id: 'k11', cuentaId: 'no-existe', nombre: 'X' })]);
+	assert.match(mala.rechazados[0].motivo, /no existe/);
 });

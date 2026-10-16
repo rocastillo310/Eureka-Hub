@@ -2018,10 +2018,10 @@ function ctOrden(a,b){var x=acc(a.cuentaId),y=acc(b.cuentaId),c=String(x?x.name:
 function ctFiltrar(){
   var f=S.ct,q=norm(f.q.trim());
   return S.contactos.filter(function(k){
-    if(f.cuenta&&k.cuentaId!==f.cuenta)return false;
+    if(f.cuenta==="_"?!!k.cuentaId:f.cuenta&&k.cuentaId!==f.cuenta)return false;
     if(!q)return true;
     var a=acc(k.cuentaId);
-    return norm([k.nombre,k.cargo,k.correo,k.telefono,k.notas,a&&a.name].join(" ")).indexOf(q)>-1||(soloDigitos(q).length>3&&soloDigitos(k.telefono).indexOf(soloDigitos(q))>-1);
+    return norm([k.nombre,k.cargo,k.empresa,k.correo,k.telefono,k.notas,a&&a.name].join(" ")).indexOf(q)>-1||(soloDigitos(q).length>3&&soloDigitos(k.telefono).indexOf(soloDigitos(q))>-1);
   }).sort(ctOrden);
 }
 function ctRow(k,sinCuenta){
@@ -2029,13 +2029,13 @@ function ctRow(k,sinCuenta){
   return '<div class="item ctrow"><button class="btn ghost t" data-act="ctopen" data-id="'+k.id+'">'+esc(k.nombre)+(k.cargo?' <span class="muted small">· '+esc(k.cargo)+'</span>':"")+'</button><span class="actions">'+
     (k.correo?'<a class="btn small" href="mailto:'+esc(k.correo)+'" title="Escribir a '+esc(k.correo)+'">Correo</a>':"")+
     (d.length>=10?'<a class="btn small" href="https://wa.me/'+(d.length===10?"52"+d:d)+'" target="_blank" rel="noopener" title="WhatsApp">WhatsApp</a>':"")+
-    '</span><span class="meta">'+(sinCuenta||!a?"":accDot(a)+esc(shortName(a.name))+' · ')+(k.correo?esc(k.correo):"")+(k.correo&&k.telefono?' · ':"")+(k.telefono?'<a href="tel:'+esc(k.telefono.replace(/[^\d+]/g,""))+'">'+esc(k.telefono)+'</a>':"")+(!k.correo&&!k.telefono?'<span>Sin correo ni teléfono</span>':"")+'</span></div>';
+    '</span><span class="meta">'+(sinCuenta||!a?"":accDot(a)+esc(shortName(a.name))+' · ')+(k.empresa&&(!a||norm(k.empresa)!==norm(a.name))?esc(k.empresa)+' · ':"")+(k.correo?esc(k.correo):"")+(k.correo&&k.telefono?' · ':"")+(k.telefono?'<a href="tel:'+esc(k.telefono.replace(/[^\d+]/g,""))+'">'+esc(k.telefono)+'</a>':"")+(!k.correo&&!k.telefono?'<span>Sin correo ni teléfono</span>':"")+'</span></div>';
 }
 function vContactos(){
   var f=S.ct,h='<div class="head"><div><h2>Contactos</h2><div class="muted">La base de datos de clientes: con quién tratamos en cada cuenta.</div></div><div class="actions">'+(SRV?'<button class="btn" data-act="ctimp">Importar CSV</button><button class="btn" data-act="ctexp">Exportar CSV</button><button class="btn primary" data-act="ctnuevo">+ Nuevo contacto</button>':"")+'</div></div>';
   if(!SRV)return h+'<div class="empty">Los contactos se guardan en el servidor. Abre la plataforma desde su dirección en internet.</div>';
   var cuentas=S.accounts.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")});
-  h+='<div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end"><div class="field" style="flex:2 1 220px"><label for="ct-q">Buscar en todas las cuentas</label><input id="ct-q" data-f="ctq" value="'+esc(f.q)+'" placeholder="Nombre, cargo, correo, teléfono, notas…" autocomplete="off"></div><div class="field" style="flex:1 1 160px"><label for="ct-c">Cuenta</label><select id="ct-c" data-f="ctc"><option value="">Todas</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===f.cuenta?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div>'+(f.q||f.cuenta?'<button class="btn" data-act="ctlimpia">Limpiar</button>':"")+'</div>';
+  h+='<div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end"><div class="field" style="flex:2 1 220px"><label for="ct-q">Buscar en todas las cuentas</label><input id="ct-q" data-f="ctq" value="'+esc(f.q)+'" placeholder="Nombre, cargo, correo, teléfono, notas…" autocomplete="off"></div><div class="field" style="flex:1 1 160px"><label for="ct-c">Cuenta</label><select id="ct-c" data-f="ctc"><option value="">Todas</option><option value="_"'+(f.cuenta==="_"?" selected":"")+'>Sin cuenta</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===f.cuenta?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div>'+(f.q||f.cuenta?'<button class="btn" data-act="ctlimpia">Limpiar</button>':"")+'</div>';
   var res=ctFiltrar();
   if(!S.contactos.length)return h+'<div class="empty">Aún no hay contactos. Agrega el primero o importa una lista desde un archivo CSV (por ejemplo, exportado de Excel o de Google Sheets).</div>';
   h+='<div class="muted small tnum">'+res.length+(res.length===1?" contacto":" contactos")+(res.length!==S.contactos.length?" de "+S.contactos.length:"")+'</div>';
@@ -2050,11 +2050,11 @@ function ctCuentaPanel(a){
 function ctModal(m){
   var k=m.id?contacto(m.id):null,cerrar='<button class="btn" data-act="close">Cerrar</button>';
   if(m.id&&!k)return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Contacto</h2>'+cerrar+'</div><div class="empty">Este contacto ya no existe.</div>';
-  var d=k||{cuentaId:m.acc||S.ct.cuenta||cuentaActual()||"",nombre:"",cargo:"",correo:"",telefono:"",notas:""};
+  var d=k||{cuentaId:m.acc||(S.ct.cuenta!=="_"?S.ct.cuenta:"")||cuentaActual()||"",nombre:"",cargo:"",empresa:"",correo:"",telefono:"",notas:""};
   var cuentas=S.accounts.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")});
   var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(k?"Contacto":"Nuevo contacto")+'</h2>'+cerrar+'</div><form id="ctForm" class="panel" style="display:flex;flex-direction:column;gap:12px">';
   h+='<div class="field"><label for="ct-n">Nombre</label><input id="ct-n" required maxlength="200" value="'+esc(d.nombre)+'" autocomplete="off"></div>';
-  h+='<div class="two"><div class="field"><label for="ct-cargo">Cargo</label><input id="ct-cargo" maxlength="120" value="'+esc(d.cargo||"")+'" placeholder="Dueña, gerente de marca…"></div><div class="field"><label for="ct-acc">Cuenta</label><select id="ct-acc" required><option value="">Elige la cuenta…</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===d.cuentaId?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div></div>';
+  h+='<div class="two"><div class="field"><label for="ct-cargo">Cargo</label><input id="ct-cargo" maxlength="120" value="'+esc(d.cargo||"")+'" placeholder="Dueña, gerente de marca…"></div><div class="field"><label for="ct-emp">Empresa</label><input id="ct-emp" maxlength="120" value="'+esc(d.empresa||"")+'" placeholder="Por ejemplo: Citroarom"></div></div><div class="two"><div class="field"><label for="ct-acc">Cuenta del Hub (opcional)</label><select id="ct-acc"><option value="">Sin cuenta (prospecto, proveedor u otro)</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===d.cuentaId?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div></div>';
   h+='<div class="two"><div class="field"><label for="ct-mail">Correo</label><input id="ct-mail" type="email" maxlength="200" value="'+esc(d.correo||"")+'" autocapitalize="none" spellcheck="false"></div><div class="field"><label for="ct-tel">Teléfono</label><input id="ct-tel" type="tel" maxlength="60" value="'+esc(d.telefono||"")+'" placeholder="33 1234 5678"></div></div>';
   h+='<div class="field"><label for="ct-notas">Notas</label><textarea id="ct-notas" maxlength="4000" placeholder="Horario, cómo prefiere que le contacten, a quién copiar…">'+esc(d.notas||"")+'</textarea>'+enlacesHtml(d.notas)+'</div>';
   h+='<div class="err" id="cterr" role="alert"></div><button class="btn primary" type="submit" style="align-self:flex-start">'+(k?"Guardar cambios":"Agregar contacto")+'</button></form>';
@@ -2063,9 +2063,9 @@ function ctModal(m){
 }
 function guardarCt(){
   var m=S.modal,er=document.getElementById("cterr"),k=m.id?contacto(m.id):null;
-  var d={nombre:val("ct-n").trim(),cargo:val("ct-cargo").trim(),cuentaId:val("ct-acc"),correo:val("ct-mail").trim().toLowerCase(),telefono:val("ct-tel").trim(),notas:val("ct-notas").trim()};
+  var d={nombre:val("ct-n").trim(),cargo:val("ct-cargo").trim(),empresa:val("ct-emp").trim(),cuentaId:val("ct-acc"),correo:val("ct-mail").trim().toLowerCase(),telefono:val("ct-tel").trim(),notas:val("ct-notas").trim()};
   if(!d.nombre){er.textContent="Escribe el nombre.";return}
-  if(!acc(d.cuentaId)){er.textContent="Elige la cuenta.";return}
+  if(d.cuentaId&&!acc(d.cuentaId)){er.textContent="Esa cuenta ya no existe; elige otra o «Sin cuenta».";return}
   if(d.correo&&!CORREO_OK.test(d.correo)){er.textContent="Revisa el correo: no parece válido.";return}
   if(k)Object.keys(d).forEach(function(x){k[x]=d[x]});
   else{d.id="k"+nid();d.creadoPor=S.session;d.creadoEn=nowIso();S.contactos.push(d)}
@@ -2073,8 +2073,8 @@ function guardarCt(){
 }
 
 /* ---------- CSV ---------- */
-var CT_COLS=[["cuenta","Cuenta"],["nombre","Nombre"],["cargo","Cargo"],["correo","Correo"],["telefono","Teléfono"],["notas","Notas"]];
-var CT_ALIAS={cuenta:["cuenta","cliente","empresa","marca","account","company"],nombre:["nombre","name","contacto","nombrecompleto","fullname"],cargo:["cargo","puesto","rol","title","position","jobtitle"],correo:["correo","email","mail","correoelectronico","emailaddress"],telefono:["telefono","tel","phone","celular","movil","whatsapp","phonenumber"],notas:["notas","nota","notes","comentarios","observaciones"]};
+var CT_COLS=[["cuenta","Cuenta"],["nombre","Nombre"],["cargo","Cargo"],["empresa","Empresa"],["correo","Correo"],["telefono","Teléfono"],["notas","Notas"]];
+var CT_ALIAS={cuenta:["cuenta","cliente","marca","account"],empresa:["empresa","company","compania","organizacion","organization"],nombre:["nombre","name","contacto","nombrecompleto","fullname"],cargo:["cargo","puesto","rol","title","position","jobtitle"],correo:["correo","email","mail","correoelectronico","emailaddress"],telefono:["telefono","tel","phone","celular","movil","whatsapp","phonenumber"],notas:["notas","nota","notes","comentarios","observaciones"]};
 // Evita que Excel ejecute una fórmula escondida en un dato (inyección CSV). Los teléfonos tipo +52… se dejan igual.
 function csvCelda(v){
   var s=String(v==null?"":v);
@@ -2087,7 +2087,7 @@ function descargar(nombre,texto){
 }
 function exportarCt(){
   var res=ctFiltrar();if(!res.length)return toast("No hay contactos para exportar");
-  var filas=[CT_COLS.map(function(c){return c[1]}).join(",")].concat(res.map(function(k){var a=acc(k.cuentaId);return [a?a.name:"",k.nombre,k.cargo,k.correo,k.telefono,k.notas].map(csvCelda).join(",")}));
+  var filas=[CT_COLS.map(function(c){return c[1]}).join(",")].concat(res.map(function(k){var a=acc(k.cuentaId);return [a?a.name:"",k.nombre,k.cargo,k.empresa||"",k.correo,k.telefono,k.notas].map(csvCelda).join(",")}));
   var a=acc(S.ct.cuenta),nom="contactos"+(a?"-"+norm(a.name).replace(/[^a-z0-9]+/g,"-"):"")+"-"+iso(0)+".csv";
   descargar(nom,filas.join("\r\n")+"\r\n");
   toast(res.length+(res.length===1?" contacto exportado":" contactos exportados"));
@@ -2115,22 +2115,21 @@ function planImportar(texto,cuentaDef){
   var idx={};
   filas[0].forEach(function(h,i){var k=norm(h).replace(/[^a-z]/g,"");Object.keys(CT_ALIAS).forEach(function(c){if(idx[c]===undefined&&CT_ALIAS[c].indexOf(k)>-1)idx[c]=i})});
   if(idx.nombre===undefined)return{error:"No encontré la columna «Nombre». La primera fila debe traer los títulos: Cuenta, Nombre, Cargo, Correo, Teléfono, Notas."};
-  if(idx.cuenta===undefined&&!acc(cuentaDef))return{error:"El archivo no trae la columna «Cuenta». Elige arriba a qué cuenta van estos contactos."};
   var porNombre={};S.accounts.forEach(function(a){porNombre[norm(a.name).trim()]=a});
   var llave=function(c,correo,nombre){return c+"|"+(correo?"@"+correo:"n:"+norm(nombre).replace(/\s+/g," ").trim())};
   var existentes={};S.contactos.forEach(function(k){existentes[llave(k.cuentaId,k.correo,k.nombre)]=k;if(k.correo)existentes[llave(k.cuentaId,"",k.nombre)]=existentes[llave(k.cuentaId,"",k.nombre)]||k});
   var vistos={},plan=[];
   filas.slice(1).forEach(function(f,n){
     var g=function(c){var v=idx[c]===undefined?"":String(f[idx[c]]||"").trim();return v.charAt(0)==="'"?v.slice(1):v};
-    var r={fila:n+2,nombre:g("nombre").slice(0,200),cargo:g("cargo").slice(0,120),correo:g("correo").toLowerCase().slice(0,200),telefono:g("telefono").slice(0,60),notas:g("notas").slice(0,4000)};
+    var r={fila:n+2,nombre:g("nombre").slice(0,200),cargo:g("cargo").slice(0,120),empresa:g("empresa").slice(0,120),correo:g("correo").toLowerCase().slice(0,200),telefono:g("telefono").slice(0,60),notas:g("notas").slice(0,4000)};
     var nc=g("cuenta"),a=nc?porNombre[norm(nc).trim()]:acc(cuentaDef);
-    r.cuentaTxt=nc||(a?a.name:"");
+    r.cuentaTxt=nc||(a?a.name:"Sin cuenta");
     if(!r.nombre)r.error="Le falta el nombre";
-    else if(!a)r.error="No existe la cuenta «"+nc+"» (Dirección la crea en Cuentas)";
+    else if(nc&&!a)r.error="No existe la cuenta «"+nc+"» (déjala vacía para guardarlo sin cuenta)";
     else if(r.correo&&!CORREO_OK.test(r.correo))r.error="Correo inválido";
     if(!r.error){
-      r.cuentaId=a.id;
-      var k1=llave(a.id,r.correo,r.nombre),k2=llave(a.id,"",r.nombre);
+      r.cuentaId=a?a.id:"";
+      var k1=llave(r.cuentaId,r.correo,r.nombre),k2=llave(r.cuentaId,"",r.nombre);
       if(vistos[k1]){r.error="Repetido en el archivo (fila "+vistos[k1]+")"}
       else{vistos[k1]=r.fila;var ex=existentes[k1]||(!r.correo?existentes[k2]:null);r.accion=ex?"actualiza":"nuevo";if(ex)r.id=ex.id}
     }
@@ -2141,7 +2140,7 @@ function planImportar(texto,cuentaDef){
 function impModal(m){
   var cuentas=S.accounts.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")});
   var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Importar contactos</h2><button class="btn" data-act="close">Cerrar</button></div>';
-  h+='<div class="panel" style="display:flex;flex-direction:column;gap:12px"><p class="muted small" style="margin:0">Sube un archivo CSV (desde Excel: «Guardar como» → CSV UTF-8; desde Google Sheets: Archivo → Descargar → CSV). La primera fila son los títulos: <b>Cuenta, Nombre, Cargo, Correo, Teléfono, Notas</b>. Solo «Nombre» es obligatorio. Si un contacto ya existe en esa cuenta (mismo correo, o mismo nombre sin correo), se actualiza; nada se borra.</p>'+
+  h+='<div class="panel" style="display:flex;flex-direction:column;gap:12px"><p class="muted small" style="margin:0">Sube un archivo CSV (desde Excel: «Guardar como» → CSV UTF-8; desde Google Sheets: Archivo → Descargar → CSV). La primera fila son los títulos: <b>Cuenta, Nombre, Cargo, Empresa, Correo, Teléfono, Notas</b>. Solo «Nombre» es obligatorio; sin «Cuenta» se guarda como contacto sin cuenta. Si un contacto ya existe en esa cuenta (mismo correo, o mismo nombre sin correo), se actualiza; nada se borra.</p>'+
     '<div class="field"><label for="imp-acc">Cuenta para las filas sin columna «Cuenta»</label><select id="imp-acc" data-f="impacc"><option value="">Ninguna (el archivo trae la cuenta)</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===m.cuenta?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div>'+
     '<div class="row" style="flex-wrap:wrap;gap:8px"><label class="btn primary" for="imp-file">Elegir archivo CSV<input id="imp-file" type="file" accept=".csv,text/csv,text/plain" data-f="impfile" class="sr"></label><button class="btn" data-act="ctplantilla" type="button">Descargar plantilla</button></div>'+(m.archivo?'<div class="muted small">Archivo: <b>'+esc(m.archivo)+'</b></div>':"")+'</div>';
   if(m.error)h+='<div class="banner" role="alert">'+esc(m.error)+'</div>';
@@ -2166,8 +2165,8 @@ function importarCt(){
   var n=0,ahora=nowIso();
   r.plan.forEach(function(x){
     if(x.error)return;
-    if(x.accion==="actualiza"){var k=contacto(x.id);if(!k)return;["cargo","correo","telefono","notas"].forEach(function(c){if(x[c])k[c]=x[c]});n++}
-    else{S.contactos.push({id:"k"+nid(),cuentaId:x.cuentaId,nombre:x.nombre,cargo:x.cargo,correo:x.correo,telefono:x.telefono,notas:x.notas,creadoPor:S.session,creadoEn:ahora});n++}
+    if(x.accion==="actualiza"){var k=contacto(x.id);if(!k)return;["cargo","empresa","correo","telefono","notas"].forEach(function(c){if(x[c])k[c]=x[c]});n++}
+    else{S.contactos.push({id:"k"+nid(),cuentaId:x.cuentaId,nombre:x.nombre,cargo:x.cargo,empresa:x.empresa,correo:x.correo,telefono:x.telefono,notas:x.notas,creadoPor:S.session,creadoEn:ahora});n++}
   });
   S.modal=null;save();toast(n+(n===1?" contacto importado":" contactos importados"));
 }

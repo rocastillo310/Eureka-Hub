@@ -2,7 +2,8 @@
 // viven solo en D1, nunca en el repositorio. Cualquiera del equipo los crea y edita; borrarlos lo hace Dirección o
 // quien los creó. El servidor valida la forma y estampa quién y cuándo los creó.
 
-const CAMPOS = { id: 80, cuentaId: 80, nombre: 200, cargo: 120, correo: 200, telefono: 60, notas: 4000, creadoPor: 80, creadoEn: 40 };
+// La cuenta es opcional (prospectos, proveedores o contactos de una empresa que no es cuenta); «empresa» es texto libre.
+const CAMPOS = { id: 80, cuentaId: 80, nombre: 200, cargo: 120, empresa: 120, correo: 200, telefono: 60, notas: 4000, creadoPor: 80, creadoEn: 40 };
 const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Devuelve el motivo del rechazo, o null si los datos son válidos.
@@ -13,7 +14,6 @@ export function validarContacto(d) {
 		if (d[k].length > CAMPOS[k]) return `El campo ${k} es demasiado largo`;
 	}
 	if (!d.nombre || !d.nombre.trim()) return 'El contacto necesita nombre';
-	if (!d.cuentaId) return 'El contacto necesita una cuenta';
 	if (d.correo && !CORREO.test(d.correo.trim())) return `Correo inválido: ${d.correo}`;
 	return null;
 }
@@ -28,7 +28,7 @@ export async function prepararContacto(env, c, usuario) {
 	}
 	const motivo = validarContacto(c.datos);
 	if (motivo) return { motivo };
-	if (!actual || c.datos.cuentaId !== actual.cuentaId) {
+	if (c.datos.cuentaId && (!actual || c.datos.cuentaId !== actual.cuentaId)) {
 		const cuenta = await env.DB.prepare("SELECT 1 AS x FROM entidades WHERE tipo = 'account' AND id = ?1 AND borrado = 0").bind(c.datos.cuentaId).first();
 		if (!cuenta) return { motivo: 'Esa cuenta no existe' };
 	}
