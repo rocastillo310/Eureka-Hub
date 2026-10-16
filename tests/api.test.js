@@ -255,7 +255,7 @@ test('nadie se da de baja a sí mismo y siempre queda una persona de Administrac
 	assert.match(yo.json.rechazados[0].motivo, /a ti mismo/);
 	const { nivel, ...sinNivel } = ADMIN;
 	const quitar = await sync(env, [{ tipo: 'user', id: ADMIN.id, base: ADMIN, datos: sinNivel }], { como: ADMIN.email });
-	assert.match(quitar.json.rechazados[0].motivo, /Administración activa/);
+	assert.match(quitar.json.rechazados[0].motivo, /propio nivel/);
 	assert.equal((await fila(env, 'user', ADMIN.id)).nivel, nivel);
 });
 
@@ -309,4 +309,18 @@ test('la API del panel (/admin/api) solo acepta la sesión de la aplicación de 
 	assert.equal((await pedir(env, 'yo', { como: ADMIN.email })).json.yo, ADMIN.id);
 	const sinConfig = await worker.fetch(new Request(PROD + '/admin/api/yo', { headers: { 'Cf-Access-Jwt-Assertion': jwtPanel } }), await entorno());
 	assert.equal((await sinConfig.json()).yo, null, 'sin ACCESS_AUD_ADMIN falla cerrado');
+});
+
+test('nadie se quita su propio nivel de Administración, aunque haya otra persona de Administración', async () => {
+	const env = await entorno();
+	const OTRA = { id: 'dora', name: 'Dora', role: 'admin', nivel: 'administracion', email: 'dora@agencia.test' };
+	await sync(env, [{ tipo: 'user', id: OTRA.id, base: null, datos: OTRA }], { como: ADMIN.email });
+	const { nivel, ...sinNivel } = ADMIN;
+	const r = await sync(env, [{ tipo: 'user', id: ADMIN.id, base: ADMIN, datos: sinNivel }], { como: ADMIN.email });
+	assert.match(r.json.rechazados[0].motivo, /propio nivel/);
+	assert.equal((await fila(env, 'user', ADMIN.id)).nivel, 'administracion');
+	// La otra persona de Administración sí puede quitárselo.
+	const r2 = await sync(env, [{ tipo: 'user', id: ADMIN.id, base: ADMIN, datos: sinNivel }], { como: OTRA.email });
+	assert.equal(r2.json.rechazados, undefined);
+	assert.equal((await fila(env, 'user', ADMIN.id)).nivel, undefined);
 });

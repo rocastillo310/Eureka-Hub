@@ -1296,7 +1296,7 @@ function vAuto(){
 /* ---------- Equipo y guía ---------- */
 function vEquipo(gestion){
   var u=me(),adm=!!gestion&&esAdm(u);
-  var nivSel=function(x){return '<label class="small muted" for="niv-'+x.id+'">Nivel</label><select id="niv-'+x.id+'" data-f="univel" data-id="'+x.id+'"><option value=""'+(esAdm(x)?"":" selected")+'>Según su rol</option><option value="administracion"'+(esAdm(x)?" selected":"")+'>Administración</option></select>'};
+  var nivSel=function(x){var propio=x.id===S.session&&esAdm(x);return '<label class="small muted" for="niv-'+x.id+'">Nivel</label><select id="niv-'+x.id+'" data-f="univel" data-id="'+x.id+'"'+(propio?' disabled title="No puedes quitarte tu propio nivel; lo hace otra persona de Administración"':"")+'><option value=""'+(esAdm(x)?"":" selected")+'>Según su rol</option><option value="administracion"'+(esAdm(x)?" selected":"")+'>Administración</option></select>'};
   var rolSel=function(x){return '<label class="small muted" for="rol-'+x.id+'">Rol</label><select id="rol-'+x.id+'" data-f="urole" data-id="'+x.id+'"><option value=""'+(x.role?"":" selected")+'>Por definir</option>'+Object.keys(ROLES).map(function(k){return '<option value="'+k+'"'+(x.role===k?" selected":"")+'>'+esc(ROLES[k])+'</option>'}).join("")+'</select>'};
   var h=(gestion?'':'<div class="head"><div><h2>Equipo</h2><div class="muted">'+(SRV?"Cada persona entra con su correo (Cloudflare Access).":"Cada persona entra con su usuario.")+'</div></div></div>')+
   (!gestion&&esAdm(u)&&SRV?'<div class="banner">Altas, bajas, niveles y permisos se manejan en el <a href="/admin">Panel de administración</a>.</div>':'')+'<div class="panel list">'+
@@ -2630,7 +2630,7 @@ document.addEventListener("change",function(e){
     save();
   }else if(f==="ucap"){var uu=user(id);if(uu&&isAdmin()){uu.cap=Math.max(1,Math.min(30,parseInt(el.value,10)||6));save()}}
   else if(f==="urole"){var ur=user(id);if(ur&&esAdm()){ur.role=el.value;save();render();toast("Rol de "+ur.name+": "+rolNombre(ur.role))}}
-  else if(f==="univel"){var un=user(id);if(un&&esAdm()){if(!el.value&&esAdm(un)&&!S.users.some(function(x){return x.id!==un.id&&esAdm(x)})){el.value="administracion";return toast("Debe quedar al menos una persona en Administración")}if(el.value)un.nivel=el.value;else delete un.nivel;save();render();toast(un.name+(el.value?" ahora es de Administración":" ya no es de Administración"))}}
+  else if(f==="univel"){var un=user(id);if(un&&esAdm()){if(un.id===S.session&&!el.value){el.value="administracion";return toast("No puedes quitarte tu propio nivel de Administración")}if(!el.value&&esAdm(un)&&!S.users.some(function(x){return x.id!==un.id&&esAdm(x)})){el.value="administracion";return toast("Debe quedar al menos una persona en Administración")}if(el.value)un.nivel=el.value;else delete un.nivel;save();render();toast(un.name+(el.value?" ahora es de Administración":" ya no es de Administración"))}}
   else if(f==="accsel"){S.accSel=el.value;if(el.value){S.view="space";S.spaceId=el.value}else S.view="spaces";S.modal=null;S.toTop=true;render()}
   else if(f==="uaprueba"){var ua=user(id);if(ua&&esAdm()){ua.aprueba=!!el.checked;save();toast(ua.name+(ua.aprueba?" aprueba entregas":" ya no aprueba entregas"))}}
   else if(f==="team"){var ac=acc(id);if(ac&&isAdmin()){ac.team[el.getAttribute("data-role")]=el.value;save();toast("Equipo de la cuenta actualizado")}}
