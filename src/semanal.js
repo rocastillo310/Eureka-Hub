@@ -11,7 +11,7 @@ import { registrar } from './bitacora.js';
 export const CRON_SEMANAL = '0 6 * * 1';
 
 // Etapas finales de fábrica (por si Dirección no ha cambiado los estados).
-const FINALES = { redes: ['publicada'], diseno: ['entregada'] };
+const FINALES = { redes: ['publicada'], diseno: ['entregada'], general: ['hecha'] };
 
 async function filas(env, tipo) {
 	const r = await env.DB.prepare('SELECT id, datos, borrado FROM entidades WHERE tipo = ?1').bind(tipo).all();

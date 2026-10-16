@@ -100,6 +100,9 @@ Se suben desde la vista **Entregas** (o arrastrando archivos a cualquier pantall
 
 ## Tareas: lo obligatorio
 
+**Área «Tareas»** (menú): las de cada quien, las que asignó y las de todo el equipo, por fecha (atrasadas, hoy, próximos 7 días, más adelante). Sirve para cualquier área: la **tarea general** (`type: "general"`) no tiene lista ni formato, la cuenta es opcional y sus etapas son fijas: Pendiente → En proceso → En revisión → Hecha (`STAT_GENERAL`, no se sincroniza como `stat`). Sus archivos se suben sin elegir cuenta (en R2 bajo `entregas/general/`). Las tareas de redes y diseño siguen en las listas de cada cuenta; «Nueva tarea» pregunta el tipo de trabajo y es general por defecto.
+
+
 Toda tarea creada a mano («Nueva tarea», la fila rápida de una lista, el formulario de solicitudes) exige **a quién se le asigna** (la persona o uno mismo), **qué tiene que hacer** y **para cuándo**. La fila rápida ya no crea la tarea solo con el título: abre el formulario con lo escrito. Al crearla se pueden adjuntar archivos (PDF, presentaciones, documentos…): se suben como entregas ligadas a la tarea y se ven en su sección «Archivos y entregas», con versiones y aprobación. Las tareas que crea el sistema (calendario aprobado, pendientes de junta, nota de la pizarra) toman su responsable de la cuenta o de la nota; si alguna queda sin nadie, la tarea lo avisa.
 
 ## Área general y aprobaciones (F3)

@@ -441,3 +441,20 @@ test('actividad de tareas: la pantalla la crea, el servidor pone autor y hora, y
 	assert.equal((await fila(env, 'actividad', 'act1')).verbo, 'movió');
 	assert.equal(await fila(env, 'actividad', 'act2'), null);
 });
+
+test('tarea general sin cuenta: sus archivos se suben sin elegir cuenta; sin tarea, la cuenta sigue siendo obligatoria', async () => {
+	const env = await entorno();
+	await poner(env, 'task', 'tg', { id: 'tg', list: '', acc: '', type: 'general', title: 'Revisar presentación', status: 'pendiente', assignees: ['beto'] });
+	const contenido = bytesDe(2048);
+	const r = await subir(env, beto, { archivo: 'Ventas.pptx', tareaId: 'tg' }, contenido);
+	const e = await fila(env, 'entrega', r.entregaId);
+	assert.equal(e.tareaId, 'tg');
+	assert.equal(e.cuentaId, '');
+	assert.ok([...env.ENTREGAS._objetos.keys()].some((k) => k.startsWith('entregas/general/')), 'en R2 va bajo entregas/general/');
+	const sin = await json(await pedir(env, 'entregas/iniciar', { como: beto, cuerpo: { archivo: 'a.pdf', tamano: 10 } }));
+	assert.equal(sin.estado, 400);
+	assert.match(sin.json.error, /cuenta/);
+	// Una tarea de redes sí exige su cuenta.
+	await poner(env, 'task', 'tr', { id: 'tr', list: 'l1', acc: 'c1', type: 'redes', title: 'Reel', status: 'redaccion', assignees: [] });
+	assert.equal((await json(await pedir(env, 'entregas/iniciar', { como: beto, cuerpo: { archivo: 'a.pdf', tamano: 10, tareaId: 'tr' } }))).estado, 400);
+});
