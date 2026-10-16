@@ -14,7 +14,8 @@ const PROD = 'https://eureka-hub.cuenta.workers.dev';
 const LOCAL = 'http://localhost:8787';
 
 // Usuarios ficticios de prueba (no son el equipo real).
-const ADMIN = { id: 'ana', name: 'Ana', role: 'admin', email: 'ana@agencia.test', aprueba: true, hue: 0, cap: 6 };
+const ADMIN = { id: 'ana', name: 'Ana', role: 'admin', nivel: 'administracion', email: 'ana@agencia.test', aprueba: true, hue: 0, cap: 6 };
+const DIRECCION = { id: 'jess', name: 'Jess', role: 'admin', email: 'jess@agencia.test', aprueba: true, hue: 3, cap: 6 };
 const NORMAL = { id: 'beto', name: 'Beto', role: '', email: 'beto@agencia.test', aprueba: false, hue: 1, cap: 6 };
 
 async function entorno({ dev = false, semilla = false } = {}) {
@@ -23,7 +24,7 @@ async function entorno({ dev = false, semilla = false } = {}) {
 	if (dev) env.DEV_LOGIN = '1';
 	if (semilla) env.PERMITIR_SEMILLA = '1';
 	// Carga directa del equipo, como hace `npm run seed:equipo`.
-	for (const u of [ADMIN, NORMAL]) {
+	for (const u of [ADMIN, NORMAL, DIRECCION]) {
 		await env.DB.batch([
 			env.DB.prepare('UPDATE contador SET seq = seq + 1 WHERE id = 1'),
 			env.DB.prepare("INSERT INTO entidades (tipo, id, datos, version, seq, creado, actualizado, borrado, por) SELECT 'user', ?1, ?2, 1, seq, seq, 'ahora', 0, 'semilla' FROM contador WHERE id = 1")
@@ -98,7 +99,7 @@ test('bootstrap en producción nunca devuelve vacio:true y trae al equipo', asyn
 	const b = await pedir(env, 'bootstrap', { como: 'beto@agencia.test' });
 	assert.equal(b.estado, 200);
 	assert.equal(b.json.vacio, undefined);
-	assert.deepEqual(b.json.entidades.map((e) => e.id).sort(), ['ana', 'beto']);
+	assert.deepEqual(b.json.entidades.map((e) => e.id).sort(), ['ana', 'beto', 'jess']);
 });
 
 test('seed está deshabilitado en producción', async () => {
@@ -241,18 +242,57 @@ test('dar de baja: la persona ya no entra, sale de la lista de Access y sus dato
 	assert.equal(yo.json.yo, null);
 	assert.match(yo.json.aviso, /dado de baja/);
 	assert.equal((await sync(env, [], { como: NORMAL.email })).estado, 401);
-	assert.deepEqual(await correosDelEquipo(env), [ADMIN.email]);
+	assert.deepEqual(await correosDelEquipo(env), [ADMIN.email, DIRECCION.email]);
 	assert.equal((await fila(env, 'user', NORMAL.id)).name, NORMAL.name, 'sigue en la base con su nombre para el historial');
 	// Reactivar le devuelve el acceso.
 	await sync(env, [{ tipo: 'user', id: NORMAL.id, base: deBaja, datos: { ...NORMAL } }], { como: ADMIN.email });
 	assert.equal((await pedir(env, 'yo', { como: NORMAL.email })).json.yo, NORMAL.id);
 });
 
-test('nadie se da de baja a sí mismo y siempre queda una persona de Dirección activa', async () => {
+test('nadie se da de baja a sí mismo y siempre queda una persona de Administración activa', async () => {
 	const env = await entorno();
 	const yo = await sync(env, [{ tipo: 'user', id: ADMIN.id, base: ADMIN, datos: { ...ADMIN, baja: { en: 'ahora', por: ADMIN.id } } }], { como: ADMIN.email });
 	assert.match(yo.json.rechazados[0].motivo, /a ti mismo/);
-	const rol = await sync(env, [{ tipo: 'user', id: ADMIN.id, base: ADMIN, datos: { ...ADMIN, role: 'community' } }], { como: ADMIN.email });
-	assert.match(rol.json.rechazados[0].motivo, /Dirección activa/);
-	assert.equal((await fila(env, 'user', ADMIN.id)).role, 'admin');
+	const { nivel, ...sinNivel } = ADMIN;
+	const quitar = await sync(env, [{ tipo: 'user', id: ADMIN.id, base: ADMIN, datos: sinNivel }], { como: ADMIN.email });
+	assert.match(quitar.json.rechazados[0].motivo, /Administración activa/);
+	assert.equal((await fila(env, 'user', ADMIN.id)).nivel, nivel);
+});
+
+// ---------- panel de administración ----------
+test('Dirección sin Administración opera (automatizaciones) pero no cambia equipo, permisos ni reglas', async () => {
+	const env = await entorno();
+	const r = await sync(env, [
+		{ tipo: 'auto', id: 'au1', base: null, datos: { id: 'au1', on: true } },
+		{ tipo: 'user', id: NORMAL.id, base: NORMAL, datos: { ...NORMAL, role: 'admin' } },
+		{ tipo: 'user', id: DIRECCION.id, base: DIRECCION, datos: { ...DIRECCION, nivel: 'administracion' } },
+		{ tipo: 'ajuste', id: 'aprobacion', base: null, datos: { regla: 'todos' } },
+	], { como: DIRECCION.email });
+	assert.deepEqual(r.json.rechazados.map((x) => x.id).sort(), ['aprobacion', 'beto', 'jess']);
+	assert.ok(r.json.rechazados.every((x) => /Solo Administración/.test(x.motivo)));
+	assert.ok(await fila(env, 'auto', 'au1'));
+	assert.equal((await fila(env, 'user', DIRECCION.id)).nivel, undefined);
+});
+
+test('Administración cambia permisos y queda en el historial, que solo Administración puede leer', async () => {
+	const env = await entorno();
+	await sync(env, [
+		{ tipo: 'user', id: DIRECCION.id, base: DIRECCION, datos: { ...DIRECCION, aprueba: false, role: 'community' } },
+		{ tipo: 'user', id: 'caro', base: null, datos: { id: 'caro', name: 'Caro', role: 'diseno', email: 'caro@agencia.test' } },
+		{ tipo: 'ajuste', id: 'aprobacion', base: null, datos: { regla: 'todos', autorAprueba: false } },
+	], { como: ADMIN.email });
+	const h = await pedir(env, 'admin/bitacora', { como: ADMIN.email });
+	assert.equal(h.estado, 200);
+	const textos = h.json.bitacora.map((b) => `${b.por}|${b.accion}|${b.detalle}`);
+	assert.ok(textos.some((t) => t.startsWith('ana|Permisos de persona|Jess: rol: Dirección → Community; ya no aprueba entregas')), textos.join(' | '));
+	assert.ok(textos.some((t) => t.startsWith('ana|Alta de persona|Caro (Diseño)')));
+	assert.ok(textos.some((t) => t.startsWith('ana|Reglas de aprobación|deben aprobar todas')));
+	assert.equal((await pedir(env, 'admin/bitacora', { como: DIRECCION.email })).estado, 403);
+	assert.equal((await pedir(env, 'admin/bitacora', { como: NORMAL.email })).estado, 403);
+});
+
+test('el panel /admin se sirve con la misma app', async () => {
+	const env = await entorno();
+	const r = await worker.fetch(new Request(PROD + '/admin'), env);
+	assert.equal(await r.text(), 'estático');
 });

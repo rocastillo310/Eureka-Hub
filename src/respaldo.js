@@ -123,11 +123,12 @@ export async function respaldar(env, { origen = 'cron', buscar = fetch, ahora = 
 		.bind('respaldo', JSON.stringify(res)).run();
 	if (!res.ok) {
 		console.log(JSON.stringify({ respaldo: 'falló', motivo: res.motivo }));
-		// Aviso en la Bandeja de Dirección cuando falla el respaldo automático (si aún no se conecta GitHub, solo queda
-		// registrado en Ajustes, para no avisar cada noche).
-		if (origen === 'cron' && repo && token) {
+		// Aviso en la Bandeja de la persona dueña del respaldo (RESPALDO_DUENO) cuando falla el automático (si aún no se
+		// conecta GitHub, solo queda registrado, para no avisar cada noche).
+		const dueno = (env.RESPALDO_DUENO || '').trim();
+		if (origen === 'cron' && repo && token && dueno) {
 			const admins = ((await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'user' AND borrado = 0").all()).results || [])
-				.map((f) => JSON.parse(f.datos)).filter((u) => u.role === 'admin' && !u.baja);
+				.map((f) => JSON.parse(f.datos)).filter((u) => u.id === dueno && !u.baja);
 			for (const u of admins) {
 				const id = 'i' + crypto.randomUUID().replace(/-/g, '').slice(0, 20);
 				await guardarDelServidor(env, 'inbox', id, () => ({ id, to: u.id, t: new Date().toISOString(), x: `El respaldo diario falló: ${res.motivo}`, task: '', read: false }), 'servidor');

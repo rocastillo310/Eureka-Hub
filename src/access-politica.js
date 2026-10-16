@@ -23,6 +23,13 @@ export async function correosDelEquipo(env) {
 	return [...new Set(correos.map((e) => e.trim().toLowerCase()))].sort();
 }
 
+// Correos de Administración (Rodrigo y Dani): la política del panel /admin.
+export async function correosAdministracion(env) {
+	const r = await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'user' AND borrado = 0").all();
+	const correos = (r.results || []).map((f) => JSON.parse(f.datos)).filter((u) => u.nivel === 'administracion' && !u.baja).map((u) => u.email).filter((e) => typeof e === 'string' && e.includes('@'));
+	return [...new Set(correos.map((e) => e.trim().toLowerCase()))].sort();
+}
+
 export async function sincronizarPoliticaAccess(env, correos, buscar = fetch) {
 	const token = (env.CF_API_TOKEN || '').trim(), cuenta = (env.CF_ACCOUNT_ID || '').trim(), politica = (env.ACCESS_POLITICA_ID || '').trim();
 	if (!token || !cuenta || !politica) return { ok: false, motivo: 'La conexión automática con Cloudflare Access no está configurada' };

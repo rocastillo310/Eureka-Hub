@@ -63,6 +63,7 @@ button{cursor:pointer}
 .brand{font-family:var(--font-display);font-weight:700;font-size:19px;display:flex;gap:8px;align-items:center}
 .brand i{width:12px;height:12px;border-radius:3px;background:var(--accent);display:inline-block}
 .nav{display:flex;flex-direction:column;gap:2px}
+.navadm{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;font-weight:600;color:var(--accent);text-decoration:none;border:1px solid var(--accent-soft)}.navadm:hover{background:var(--accent-soft)}
 .nav button{border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:8px;font-weight:600;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px}
 .nav button:hover{background:var(--surface2)}
 .nav button.on{background:var(--accent-soft);color:var(--accent)}
@@ -179,6 +180,7 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);margin-to
   .side{position:fixed;bottom:0;left:0;right:0;top:auto;height:auto;flex-direction:row;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));border-right:0;border-top:1px solid var(--line);z-index:15;gap:0;overflow:visible}
   .side .brand,.side .me .who{display:none}.side .me{margin:0;border:0;padding:0;flex:none}
   .nav{flex-direction:row;flex:1;overflow-x:auto}.nav button{flex:1 0 auto;flex-direction:column;font-size:12px;padding:6px 8px;gap:2px;text-align:center}
+  .navadm{flex:1 0 auto;flex-direction:column;font-size:12px;padding:6px 8px;gap:2px;text-align:center;border:0;justify-content:center}
   main{padding-bottom:90px}.two{grid-template-columns:1fr}.head h2{font-size:24px}
 }
 @media (prefers-reduced-motion:no-preference){.drawer{animation:in .18s ease-out}@keyframes in{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}}
@@ -447,7 +449,7 @@ var AVC=["#0E6F66","#7A4FB0","#2F6FB5","#B3261E","#8A5A00","#3E7D3A","#B0447A"];
 var GROUPS=[["estado","Estado"],["resp","Responsable"],["prio","Prioridad"],["semana","Fecha"]];
 var VIEWS=[["tablero","Tablero"],["lista","Lista"],["tabla","Tabla"],["calendario","Calendario"],["carga","Carga de trabajo"],["form","Formulario"]];
 var VIEW_INFO={tablero:"Tarjetas por etapa. Arrastra o toca una tarjeta para avanzarla.",lista:"Filas agrupadas por estado, persona, prioridad o fecha.",tabla:"Como la lista, con colores y un resumen por grupo.",calendario:"Las tareas ubicadas por día del mes.",carga:"Cuántas tareas abiertas tiene cada persona.",form:"Para pedir trabajo nuevo con los datos necesarios."};
-var ICONS={
+var ICONS={shield:'<path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
  home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
  inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v7H2v-7z"/>',
  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
@@ -570,6 +572,9 @@ function dstr(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0
 function statName(type,k){var s=S.stat[type].find(function(x){return x.k===k});return s?s.n:k}
 function openTasks(arr){return arr.filter(function(t){return !isFinal(t)})}
 function isAdmin(){return me().role==="admin"}
+// Administración (Rodrigo y Dani): por encima de Dirección. Equipo, permisos, reglas, integraciones y cuentas a eliminar.
+function esAdm(u){u=u||me();return !!u&&u.nivel==="administracion"&&!u.baja}
+function enAdmin(){return /^\/admin(\/|$)/.test(location.pathname)}
 function canEdit(t){var u=me();return u.role==="admin"||t.assignees.indexOf(u.id)>-1||t.createdBy===u.id||!t.assignees.length}
 function deny(){toast("Solo las personas asignadas o Dirección pueden cambiar esto")}
 function prioPill(t){var p=prioDef(t.priority);return p?'<span class="pr lb-'+p.c+'">'+ic("flag")+esc(p.n)+'</span>':""}
@@ -780,11 +785,9 @@ function cuentaActual(){
   return acc(S.accSel)?S.accSel:"";
 }
 function tree(){
-  // Las cuentas van en un menú desplegable para no saturar la barra; debajo, solo las listas de la elegida.
-  var cur=cuentaActual(),ord=S.accounts.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")});
-  var h='<div class="tree"><select id="accsel" data-f="accsel" aria-label="Elegir cuenta" style="width:100%;margin:2px 0 6px">'+
-    '<option value="">'+(S.accounts.length?"Elegir cuenta ("+S.accounts.length+")…":"Sin cuentas todavía")+'</option>'+
-    ord.map(function(a){return '<option value="'+a.id+'"'+(a.id===cur?" selected":"")+'>'+esc(shortName(a.name))+'</option>'}).join("")+'</select>';
+  // Las cuentas se eligen en «Cuentas» (sin menú desplegable, para no meter ruido); debajo, las listas de la que está abierta.
+  var cur=cuentaActual();
+  var h='<div class="tree">';
   if(cur){
     var a0=acc(cur);
     h+='<button class="tlist'+(S.view==="space"&&S.spaceId===cur?" on":"")+'" data-act="space" data-id="'+cur+'">'+accDot(a0)+'<span>Resumen de la cuenta</span></button>';
@@ -797,6 +800,7 @@ function tree(){
 function shell(){
   var u=me(),h='<div class="shell"><aside class="side"><div class="brand"><i></i> Eureka Hub</div><nav class="nav" aria-label="Principal">'+
   navBtn("general","Área general","pulse")+navBtn("dia","Mi día","home")+navBtn("entregas","Entregas","upload")+navBtn("bandeja","Bandeja","inbox",unread())+navBtn("agenda","Agenda","calendar")+navBtn("panel","Panel","panel")+
+  (esAdm(u)?'<a class="navadm" href="/admin" title="Panel de administración">'+ic("shield")+'<span>Administración</span></a>':"")+
   '<div class="navlbl">Espacios</div>'+navBtn("spaces","Cuentas","folder")+tree()+navBtn("contactos","Contactos","contact")+
   '<div class="navlbl">Herramientas</div>'+navBtn("cals","Calendarios","check",pendCals()||"","sec")+navBtn("auto","Automatizaciones","bolt",0,"sec")+navBtn("pizarra","Pizarra Kanban","note",0,"sec")+navBtn("drive","Drive","drive",0,"sec")+navBtn("equipo","Equipo","users",0,"sec")+navBtn("ajustes","Ajustes","sliders",0,"sec")+navBtn("guia","Guía","book",0,"sec")+
   '<button data-act="menu" class="moreNav'+(SEC.indexOf(S.view)>-1?" on":"")+'"><span class="row" style="gap:8px">'+ic("grid")+'<span>Más</span></span></button>'+
@@ -811,7 +815,11 @@ function shell(){
   return h+'</div>';
 }
 function view(){
+  // El panel solo se abre entrando por /admin (Cloudflare Access vuelve a pedir el código); al salir de él, la URL vuelve a /.
+  if(S.view==="admin"&&!enAdmin())S.view="general";
+  if(S.view!=="admin"&&enAdmin()){try{history.replaceState(null,"","/")}catch(e){}}
   switch(S.view){
+    case"admin":return vAdmin();
     case"general":return vGeneral();case"contactos":return vContactos();case"dia":return vDia();case"bandeja":return vBandeja();case"agenda":return vAgenda();case"panel":return vPanel();
     case"spaces":return vSpaces();case"space":return vSpace();case"list":return vList();
     case"cals":return vCals();case"auto":return vAuto();case"pizarra":return vKanban();case"drive":return vDrive();case"equipo":return vEquipo();case"guia":return vGuia();
@@ -1286,23 +1294,48 @@ function vAuto(){
 }
 
 /* ---------- Equipo y guía ---------- */
-function vEquipo(){
-  var u=me(),adm=u.role==="admin";
+function vEquipo(gestion){
+  var u=me(),adm=!!gestion&&esAdm(u);
+  var nivSel=function(x){return '<label class="small muted" for="niv-'+x.id+'">Nivel</label><select id="niv-'+x.id+'" data-f="univel" data-id="'+x.id+'"><option value=""'+(esAdm(x)?"":" selected")+'>Según su rol</option><option value="administracion"'+(esAdm(x)?" selected":"")+'>Administración</option></select>'};
   var rolSel=function(x){return '<label class="small muted" for="rol-'+x.id+'">Rol</label><select id="rol-'+x.id+'" data-f="urole" data-id="'+x.id+'"><option value=""'+(x.role?"":" selected")+'>Por definir</option>'+Object.keys(ROLES).map(function(k){return '<option value="'+k+'"'+(x.role===k?" selected":"")+'>'+esc(ROLES[k])+'</option>'}).join("")+'</select>'};
-  var h='<div class="head"><div><h2>Equipo</h2><div class="muted">'+(SRV?"Cada persona entra con su correo (Cloudflare Access).":"Cada persona entra con su usuario.")+'</div></div></div><div class="panel list">'+
+  var h=(gestion?'':'<div class="head"><div><h2>Equipo</h2><div class="muted">'+(SRV?"Cada persona entra con su correo (Cloudflare Access).":"Cada persona entra con su usuario.")+'</div></div></div>')+
+  (!gestion&&esAdm(u)&&SRV?'<div class="banner">Altas, bajas, niveles y permisos se manejan en el <a href="/admin">Panel de administración</a>.</div>':'')+'<div class="panel list">'+
   activos().map(function(x){return '<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:8px"><span class="row"><span class="avatar" style="background:'+avColor(x)+';color:#fff">'+esc(x.name[0])+'</span><span><b>'+esc(x.name)+'</b><div class="muted small">Usuario: '+esc(x.id)+(adm&&x.email?' · '+esc(x.email):"")+'</div></span></span><span class="row" style="gap:10px;flex-wrap:wrap">'+
-    (adm?rolSel(x)+'<label class="chk small" for="apr-'+x.id+'"><input type="checkbox" id="apr-'+x.id+'" data-f="uaprueba" data-id="'+x.id+'"'+(x.aprueba?" checked":"")+'> Aprueba entregas</label>'+(x.id!==S.session?'<button class="btn small ghost danger" data-act="ubaja" data-id="'+x.id+'">'+(S.armed==="ubaja"+x.id?seguro("dar de baja a "+esc(x.name),bajaNota(x)):"Dar de baja")+'</button>':"")
-        :'<span class="pill eq-role st-programada">'+esc(rolNombre(x.role))+'</span>'+(x.aprueba?'<span class="pill">Aprueba entregas</span>':""))+'</span></div>'}).join("")+'</div>';
+    (adm?nivSel(x)+rolSel(x)+'<label class="chk small" for="apr-'+x.id+'"><input type="checkbox" id="apr-'+x.id+'" data-f="uaprueba" data-id="'+x.id+'"'+(x.aprueba?" checked":"")+'> Aprueba entregas</label>'+(x.id!==S.session?'<button class="btn small ghost danger" data-act="ubaja" data-id="'+x.id+'">'+(S.armed==="ubaja"+x.id?seguro("dar de baja a "+esc(x.name),bajaNota(x)):"Dar de baja")+'</button>':"")
+        :(esAdm(x)?'<span class="pill st-cliente">Administración</span>':"")+'<span class="pill eq-role st-programada">'+esc(rolNombre(x.role))+'</span>'+(x.aprueba?'<span class="pill">Aprueba entregas</span>':""))+'</span></div>'}).join("")+'</div>';
   var bajas=S.users.filter(function(x){return x.baja});
   if(bajas.length)h+='<div class="panel list"><h3>Dados de baja</h3><p class="muted small" style="margin:4px 0 8px">No pueden entrar al Hub. Su historial se conserva.</p>'+bajas.map(function(x){var n=openTasks(S.tasks).filter(function(t){return t.assignees.indexOf(x.id)>-1}).length;return '<div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:8px"><span class="row"><span class="avatar" style="background:var(--muted);color:var(--surface)">'+esc(x.name[0])+'</span><span><b>'+esc(x.name)+'</b><div class="muted small">Desde el '+ftime(x.baja.en)+(n?' · <b class="bad">'+n+' tarea'+(n>1?"s":"")+' abierta'+(n>1?"s":"")+' por reasignar</b>':"")+'</div></span></span>'+(adm?'<button class="btn small" data-act="ureact" data-id="'+x.id+'">Reactivar</button>':"")+'</div>'}).join("")+'</div>';
   if(adm){
     h+='<form class="panel" id="addUser" style="display:flex;flex-direction:column;gap:12px"><h3>Agregar persona</h3><p class="muted small" style="margin:0">Al crearla queda en el equipo de las cuentas que elijas, y las automatizaciones le asignan lo que corresponda a su rol.</p><div class="two"><div class="field"><label for="nu-n">Nombre</label><input id="nu-n" required></div><div class="field"><label for="nu-u">Usuario</label><input id="nu-u" required autocapitalize="none"></div></div><div class="two"><div class="field"><label for="nu-r">Rol</label><select id="nu-r"><option value="">Por definir</option>'+Object.keys(ROLES).map(function(k){return '<option value="'+k+'">'+ROLES[k]+'</option>'}).join("")+'</select></div>'+(SRV?'<div class="field"><label for="nu-e">Correo con el que entra</label><input id="nu-e" type="email" required autocapitalize="none" spellcheck="false"></div>':'<div class="field"><label for="nu-p">Contraseña temporal</label><input id="nu-p" required minlength="6"></div>')+'</div>'+(SRV?'<p class="muted small" style="margin:0">El mismo correo debe estar en la política de Cloudflare Access; si no, la persona no podrá entrar.</p>':"")+'<div class="field"><label>Cuentas a las que se suma</label><div class="row" style="flex-wrap:wrap;gap:12px">'+S.accounts.map(function(a){return '<label class="chk small"><input type="checkbox" name="nu-acc" value="'+a.id+'"> '+esc(shortName(a.name))+'</label>'}).join("")+'</div></div><div class="err" id="nuerr"></div><button class="btn primary" type="submit" style="align-self:flex-start">Agregar</button></form>';
-  }else h+='<div class="banner">Solo Dirección puede agregar personas.</div>';
+  }else if(gestion)h+='<div class="banner">Solo Administración puede agregar personas.</div>';
   if(!SRV)h+='<div class="panel"><b>Borrar los datos de este navegador</b><p class="muted small" style="margin:6px 0 10px">Borra cuentas, listas, tareas, calendarios y contraseñas guardados en este navegador y lo deja como nuevo. No se puede deshacer.</p><button class="btn danger" data-act="reset">'+(S.armed==="reset"?seguro("borrar todos los datos de este navegador"):"Borrar todo")+'</button></div>';
   return h;
 }
 // Texto de confirmación al dar de baja: qué pasa con su acceso y con sus tareas.
 function bajaNota(x){var n=openTasks(S.tasks).filter(function(t){return t.assignees.indexOf(x.id)>-1}).length;return 'Pierde el acceso al Hub y en Cloudflare al momento; su historial se conserva'+(n===1?' y su tarea abierta queda marcada para reasignar':n?' y sus '+n+' tareas abiertas quedan marcadas para reasignar':'')+'. Puedes reactivar su acceso después.'}
+var ADMH={cargado:false,cargando:false,filas:[],error:""};
+function cargarHist(forzar){
+  if(!SRV||!esAdm()||ADMH.cargando||(ADMH.cargado&&!forzar))return;
+  ADMH.cargando=true;
+  api("admin/bitacora").then(function(r){ADMH.filas=r.bitacora||[];ADMH.error="";ADMH.cargado=true;ADMH.cargando=false;if(S.view==="admin")render()}).catch(function(e){ADMH.error=(e&&e.message)||"No se pudo leer";ADMH.cargado=true;ADMH.cargando=false;if(S.view==="admin")render()});
+}
+var ADM_TABS=[["personas","Personas y permisos"],["reglas","Reglas de aprobación"],["integraciones","Integraciones y respaldo"],["historial","Historial"]];
+function vAdmin(){
+  var h='<div class="head"><div><h2>Panel de administración</h2><div class="muted">Solo Administración: Rodrigo y Dani. Cada cambio queda en el historial.</div></div><div class="actions"><a class="btn" href="/">Volver al Hub</a></div></div>';
+  if(!SRV||!esAdm())return h+'<div class="empty">No tienes acceso a este panel. Si crees que es un error, habla con Administración.</div>';
+  var t=S.admTab||"personas";
+  h+='<div class="vtabs" role="tablist">'+ADM_TABS.map(function(x){return '<button role="tab" aria-selected="'+(t===x[0])+'" class="'+(t===x[0]?"on":"")+'" data-act="admtab" data-v="'+x[0]+'">'+x[1]+'</button>'}).join("")+'</div>';
+  if(t==="personas")return h+'<p class="muted small" style="margin:0">Niveles: <b>Administración</b> controla todo (este panel); <b>Dirección</b> maneja cuentas, tareas, entregas y automatizaciones; el resto del <b>equipo</b>, su trabajo. «Rol» define a quién le asignan las automatizaciones.</p>'+vEquipo(true);
+  if(t==="reglas")return h+ajAprobPanel();
+  if(t==="integraciones"){cargarCfg();return h+googlePanel()+respPanel()+almPanel()}
+  cargarHist();
+  var f=ADMH.filas;
+  h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Historial de cambios</h3><button class="btn small" data-act="admhist">Actualizar</button></div><p class="muted small" style="margin:0">Altas, bajas, niveles, roles, quién aprueba, reglas de aprobación, cuentas eliminadas e integraciones.</p>';
+  if(!ADMH.cargado)return h+'<div class="muted small">Cargando…</div></div>';
+  if(ADMH.error)return h+'<div class="banner" role="alert">'+esc(ADMH.error)+'</div></div>';
+  if(!f.length)return h+'<div class="empty">Todavía no hay cambios registrados.</div></div>';
+  return h+'<div class="log">'+f.map(function(x){return '<div><b>'+esc(uname(x.por))+'</b> · '+ftime(x.t)+'<br><b>'+esc(x.accion)+'</b>'+(x.detalle?': '+esc(x.detalle):"")+'</div>'}).join("")+'</div></div>';
+}
 function vGuia(){
   return '<div class="head"><div><h2>Guía rápida</h2><div class="muted">Para quien entra por primera vez</div></div></div><div class="panel guide">'+
   '<h3>Entrar y salir</h3><p>Abre la dirección del Hub, escribe tu correo y pega el código que te llega (Cloudflare Access). No hay contraseña. Solo entran los correos que Dirección dio de alta en Equipo. «Salir» está junto a tu nombre.</p>'+
@@ -1328,8 +1361,8 @@ function vGuia(){
   ''+
   '<h3>Alertas</h3><ul><li><b>En riesgo:</b> faltan 2 días o menos y la tarea aún no está en una etapa final o programada.</li><li><b>Atrasada:</b> pasó la fecha y no está terminada.</li></ul>'+
   ''+
-  '<h3>Quién puede cambiar qué</h3><p>Dirección edita todo. El resto puede cambiar las tareas que tiene asignadas, las que creó o las que no tienen responsable. Cualquiera puede comentar. Para regresar una tarea de etapa hay que escribir el motivo. Las acciones que borran piden un segundo toque para confirmar.</p>'+
-  '<h3>Equipo (Dirección)</h3><p>En Equipo, Dirección agrega personas con el correo con el que van a entrar; el acceso en Cloudflare se actualiza solo. «Dar de baja» quita el acceso al momento, pero conserva el historial de esa persona; sus tareas abiertas quedan marcadas en «Quién tiene qué» para reasignarlas. «Reactivar» le devuelve el acceso; vuelve a marcar «Aprueba entregas» y su lugar en las cuentas si hace falta. En Ajustes están la regla de aprobación, el respaldo de la base y el almacenamiento usado.</p>'+
+  '<h3>Quién puede cambiar qué</h3><p>Hay tres niveles. <b>Administración</b> (Rodrigo y Dani) controla equipo, permisos, reglas e integraciones desde el Panel de administración. <b>Dirección</b> edita cuentas, tareas, entregas y automatizaciones. El resto puede cambiar las tareas que tiene asignadas, las que creó o las que no tienen responsable. Cualquiera puede comentar. Para regresar una tarea de etapa hay que escribir el motivo. Las acciones que borran piden un segundo toque para confirmar.</p>'+
+  '<h3>Panel de administración</h3><p>Solo para Administración: entra con «Administración» en el menú (o en la dirección del Hub terminada en /admin); Cloudflare vuelve a pedir tu correo y el código. Ahí se agregan personas, se dan de baja o se reactivan, se cambia su nivel, su rol y quién aprueba entregas; se deciden las reglas de aprobación; se conectan Google Calendar y se revisa el almacenamiento. Cada cambio queda en «Historial». El respaldo de la base solo lo ve Rodrigo.</p>'+
   '<h3>Para que no se vea saturado</h3><p>Las listas muestran solo las columnas básicas; activa «Mostrar más columnas» si las necesitas. En la pizarra, «Solo lo mío» deja solo tus notas.</p>'+
   '<h3>Tema claro u oscuro</h3><p>En Ajustes → Apariencia eliges claro, oscuro o «como el sistema» (sigue el modo de tu computadora o teléfono). Se guarda para tu cuenta.</p>'+
   ''+
@@ -1711,11 +1744,12 @@ function vAjustes(){
   var h='<div class="head"><div><h2>Ajustes</h2><div class="muted">Configuración y uso de la plataforma</div></div></div>';
   h+=temaPanel();
   if(!SRV)return h+'<div class="empty">Los demás ajustes aparecen al usar la plataforma en línea.</div>';
+  if(esAdm())h+='<div class="banner">Reglas de aprobación, Google Calendar, respaldo y almacenamiento están en el <a href="/admin">Panel de administración</a>.</div>';
+  return h;
+}
+function almPanel(){
   cargarCfg();
-  h+=ajAprobPanel();
-  h+=respPanel();
-  h+=googlePanel();
-  var u=usoBytes(),pct=Math.min(100,u.total/GRATIS_BYTES*100),alto=pct>=80,porCuenta={};
+  var h="",u=usoBytes(),pct=Math.min(100,u.total/GRATIS_BYTES*100),alto=pct>=80,porCuenta={};
   S.entregas.forEach(function(e){porCuenta[e.cuentaId]=(porCuenta[e.cuentaId]||0)+enTam(e)});
   h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Almacenamiento de entregas</h3><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:baseline"><span><b class="tnum" style="font-size:22px;font-family:var(--font-display)">'+fbytes(u.total)+'</b> <span class="muted">de 10 GB gratis</span></span><b class="tnum"'+(alto?' style="color:var(--bad)"':"")+'>'+(u.total&&pct<1?"menos de 1":Math.round(pct))+' %</b></div><span class="bar'+(alto?" alto":"")+'" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(pct)+'" aria-label="Almacenamiento usado"><i style="width:'+pct+'%"></i></span>'+
     (alto?'<div class="banner" role="alert">Ya va el '+Math.round(pct)+' % del almacenamiento gratis. Lo que pase de 10 GB se cobra cada mes por GB guardado.</div>':"")+
@@ -1884,8 +1918,8 @@ function crearJunta(){
 }
 
 function ajAprobPanel(){
-  var a=ajAprob(),adm=isAdmin(),dis=adm?"":" disabled",ap=S.users.filter(function(u){return u.aprueba});
-  return '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Aprobación de entregas</h3><span class="pill st-redaccion">Provisional: falta que Dirección lo decida</span></div>'+
+  var a=ajAprob(),adm=esAdm(),dis=adm?"":" disabled",ap=activos().filter(function(u){return u.aprueba}),dec=S.ajustes&&S.ajustes.aprobacion&&S.ajustes.aprobacion.decidido;
+  return '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Aprobación de entregas</h3>'+(dec?'<span class="pill st-publicada">Decidido por '+esc(uname(dec.por))+' el '+ftime(dec.en)+'</span>':'<span class="pill st-redaccion">Provisional: falta que Administración lo decida</span>')+'</div>'+
   '<fieldset class="opts"'+dis+'><legend class="small muted">¿Cuántas aprobaciones necesita una entrega?</legend><label class="chk small"><input type="radio" name="aj-regla" value="uno" data-f="ajregla"'+(a.regla==="uno"?" checked":"")+'> Basta con una persona</label><label class="chk small"><input type="radio" name="aj-regla" value="todos" data-f="ajregla"'+(a.regla==="todos"?" checked":"")+'> Deben aprobar todas las personas que aprueban</label></fieldset>'+
   '<label class="chk small"><input type="checkbox" data-f="ajautor"'+(a.autorAprueba?" checked":"")+dis+'> Quien sube una entrega también puede aprobarla</label>'+
   '<p class="muted small" style="margin:0">Aprueban: '+(ap.length?esc(ap.map(function(u){return u.name}).join(", ")):"nadie todavía")+'. Se cambia en Equipo con «Aprueba entregas».'+(adm?"":" Solo Dirección cambia estos ajustes.")+' Los cambios aplican a las siguientes decisiones.</p></div>';
@@ -2106,12 +2140,12 @@ function crearSubcarpeta(){
 /* Invitaciones de Google Calendar: las actividades «Para todo el equipo» con enlace mandan invitación por correo. */
 var GCAL={cargado:false,cargando:false,datos:null,error:""};
 function cargarGcal(forzar){
-  if(!SRV||!isAdmin()||GCAL.cargando||(GCAL.cargado&&!forzar))return;
+  if(!SRV||!esAdm()||GCAL.cargando||(GCAL.cargado&&!forzar))return;
   GCAL.cargando=true;
-  api("google/estado").then(function(r){GCAL.datos=r;GCAL.error="";GCAL.cargado=true;GCAL.cargando=false;if(S.view==="ajustes")render()}).catch(function(e){GCAL.error=(e&&e.message)||"No se pudo leer";GCAL.cargando=false;GCAL.cargado=true;if(S.view==="ajustes")render()});
+  api("google/estado").then(function(r){GCAL.datos=r;GCAL.error="";GCAL.cargado=true;GCAL.cargando=false;if(S.view==="admin")render()}).catch(function(e){GCAL.error=(e&&e.message)||"No se pudo leer";GCAL.cargando=false;GCAL.cargado=true;if(S.view==="admin")render()});
 }
 function googlePanel(){
-  if(!SRV||!isAdmin())return "";
+  if(!SRV||!esAdm())return "";
   cargarGcal();
   var d=GCAL.datos,u=d&&d.ultimo,h='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Invitaciones de Google Calendar</h3>'+(d&&d.conectado?'<span class="pill st-publicada">Conectado</span>':"")+'</div>';
   if(!d)return h+'<div class="muted small">'+(GCAL.error?esc(GCAL.error):"Cargando…")+'</div></div>';
@@ -2124,12 +2158,12 @@ function googlePanel(){
 }
 var RESP={cargado:false,cargando:false,datos:null,error:"",corriendo:false};
 function cargarResp(forzar){
-  if(!SRV||!isAdmin()||RESP.cargando||(RESP.cargado&&!forzar))return;
+  if(!SRV||!SRV.respaldo||RESP.cargando||(RESP.cargado&&!forzar))return;
   RESP.cargando=true;
-  api("respaldo/estado").then(function(r){RESP.datos=r;RESP.error="";RESP.cargado=true;RESP.cargando=false;if(S.view==="ajustes")render()}).catch(function(e){RESP.error=(e&&e.message)||"No se pudo leer";RESP.cargando=false;RESP.cargado=true;if(S.view==="ajustes")render()});
+  api("respaldo/estado").then(function(r){RESP.datos=r;RESP.error="";RESP.cargado=true;RESP.cargando=false;if(S.view==="admin")render()}).catch(function(e){RESP.error=(e&&e.message)||"No se pudo leer";RESP.cargando=false;RESP.cargado=true;if(S.view==="admin")render()});
 }
 function respPanel(){
-  if(!SRV||!isAdmin())return "";
+  if(!SRV||!SRV.respaldo)return ""; // el respaldo lo ve solo su dueño (RESPALDO_DUENO en el Worker)
   cargarResp();
   var d=RESP.datos,u=d&&d.ultimo,h='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Respaldo de la base</h3>'+(u?'<span class="pill '+(u.ok?"st-publicada":"risk-atrasada")+'">'+(u.ok?"Último respaldo correcto":"El último respaldo falló")+'</span>':"")+'</div>';
   if(!d)return h+'<div class="muted small">'+(RESP.error?esc(RESP.error):"Cargando…")+'</div></div>';
@@ -2423,14 +2457,14 @@ function act(a,el){
     logT(t,"Publicó una actualización");save();return toast("Actualización publicada");
   case"mention":var ta=document.getElementById("c-new");if(ta){ta.value+=(ta.value&&!/\s$/.test(ta.value)?" ":"")+"@"+el.getAttribute("data-n")+" ";ta.focus()}return;
   case"ubaja":
-    var ub=user(id);if(!ub||!isAdmin()||id===S.session)return;
+    var ub=user(id);if(!ub||!esAdm()||id===S.session)return;
     if(!arm("ubaja"+id))return;
     ub.baja={en:nowIso(),por:S.session};ub.aprueba=false;
     // Sale del equipo de cada cuenta para que las automatizaciones no le asignen nada nuevo.
     S.accounts.forEach(function(a){if(a.team)Object.keys(a.team).forEach(function(r){if(a.team[r]===id)a.team[r]=""})});
     save();return toast("Se dio de baja a "+ub.name+". Ya no puede entrar al Hub.");
   case"ureact":
-    var ur3=user(id);if(!ur3||!isAdmin())return;
+    var ur3=user(id);if(!ur3||!esAdm())return;
     delete ur3.baja;save();return toast("Se reactivó a "+ur3.name+". Ya puede volver a entrar.");
   case"deltask":if(!arm("deltask"+id))return;S.tasks=S.tasks.filter(function(z){return z.id!==id});S.modal=null;save();return toast("Tarea eliminada");
   case"newtask":S.modal={kind:"newtask",acc:el.getAttribute("data-acc")||""};return render();
@@ -2495,7 +2529,7 @@ function act(a,el){
   case"dldo":var dp=taskById(val("dl-task"));if(!dp)return;dp.files=dp.files||[];if(dp.files.some(function(z){return z.id===S.modal.file.id})){S.modal=null;return toast("Ese archivo ya estaba vinculado")}dp.files.push(S.modal.file);logT(dp,"Vinculó el archivo de Drive «"+S.modal.file.title+"»");S.modal=null;save();return toast("Archivo vinculado a la tarea");
   case"drunlink":t.files.splice(+el.getAttribute("data-j"),1);logT(t,"Quitó un archivo de Drive");save();return render();
   case"delacc":
-    var da=acc(id);if(!da||!isAdmin())return;
+    var da=acc(id);if(!da||!esAdm())return;
     var dbl=bloqueosCuenta(id);if(dbl.length)return toast("No se puede eliminar: tiene "+dbl.join(", "));
     if(!arm("delacc"+id))return;
     S.accounts=S.accounts.filter(function(z){return z.id!==id});S.lists=S.lists.filter(function(l){return l.acc!==id});
@@ -2505,7 +2539,7 @@ function act(a,el){
     S.modal=null;S.view="spaces";S.toTop=true;save();return toast("Cuenta «"+da.name+"» eliminada");
   case"subcnueva":S.modal={kind:"subcarpeta",acc:id};S.pop=null;return render();
   case"respahora":
-    if(RESP.corriendo)return;RESP.corriendo=true;render();
+    if(!SRV||!SRV.respaldo||RESP.corriendo)return;RESP.corriendo=true;render();
     return api("respaldo/ahora",{}).then(function(r){RESP.corriendo=false;toast(r.ok?"Respaldo guardado en GitHub":"El respaldo falló: "+r.motivo);cargarResp(true)}).catch(function(e){RESP.corriendo=false;toast((e&&e.message)||"No se pudo respaldar");render()});
   case"tema":return ponerTema(el.getAttribute("data-v")||"");
   case"ctnuevo":S.modal={kind:"contacto",acc:el.getAttribute("data-acc")||""};S.pop=null;return render();
@@ -2526,7 +2560,9 @@ function act(a,el){
   case"ennav":S.view="entregas";S.modal=null;S.pop=null;S.en.papelera=false;if(el.hasAttribute("data-c")){S.en.cuenta=el.getAttribute("data-c");S.en.lista=""}if(el.hasAttribute("data-l"))S.en.lista=el.getAttribute("data-l");S.toTop=true;return render();
   case"enpap":S.en.papelera=true;S.toTop=true;return render();
   case"enclear":S.en.q="";S.en.estado="";S.en.persona="";S.en.tipo="";return render();
-  case"gdesc":if(!isAdmin()||!arm("gdesc"))return;return api("google/desconectar",{}).then(function(){toast("Google Calendar desconectado");cargarGcal(true)}).catch(function(e){toast((e&&e.message)||"No se pudo desconectar")});
+  case"gdesc":if(!esAdm()||!arm("gdesc"))return;return api("google/desconectar",{}).then(function(){toast("Google Calendar desconectado");cargarGcal(true)}).catch(function(e){toast((e&&e.message)||"No se pudo desconectar")});
+  case"admtab":S.admTab=el.getAttribute("data-v");if(S.admTab==="historial")cargarHist(true);return render();
+  case"admhist":return cargarHist(true);
   case"errinicio":S.modal=null;S.pop=null;S.view="general";return render();
   case"errrecargar":return location.reload();
   case"ensubir":return abrirSubir([],{tarea:el.getAttribute("data-tarea")||"",elegir:true});
@@ -2570,7 +2606,7 @@ document.addEventListener("change",function(e){
   else if(f==="impacc"){S.modal.cuenta=el.value;if(S.modal.texto){var ri=planImportar(S.modal.texto,el.value);S.modal.error=ri.error||"";S.modal.res=ri.error?null:ri}render()}
   else if(f==="impfile"){leerArchivoImp(el.files&&el.files[0])}
   else if(f==="tema"){ponerTema(el.value)}
-  else if(f==="ajregla"||f==="ajautor"){if(!isAdmin())return render();var aj0=ajAprob();if(f==="ajregla")aj0.regla=el.value;else aj0.autorAprueba=!!el.checked;S.ajustes.aprobacion=aj0;save();render();toast("Ajuste de aprobación guardado")}
+  else if(f==="ajregla"||f==="ajautor"){if(!esAdm())return render();var aj0=ajAprob();if(f==="ajregla")aj0.regla=el.value;else aj0.autorAprueba=!!el.checked;aj0.decidido={por:S.session,en:nowIso()};S.ajustes.aprobacion=aj0;save();render();toast("Ajuste de aprobación guardado")}
   else if(f==="enpersona"){S.en.persona=el.value;render()}
   else if(f==="entipo"){S.en.tipo=el.value;render()}
   else if(f==="sbfile"){guardarNombres();abrirSubir([].slice.call(el.files||[]))}
@@ -2592,9 +2628,10 @@ document.addEventListener("change",function(e){
     else if(k==="tags"){t.tags=v.split(",").map(function(x){return x.trim()}).filter(Boolean);logT(t,"Editó las etiquetas")}
     save();
   }else if(f==="ucap"){var uu=user(id);if(uu&&isAdmin()){uu.cap=Math.max(1,Math.min(30,parseInt(el.value,10)||6));save()}}
-  else if(f==="urole"){var ur=user(id);if(ur&&isAdmin()){if(ur.role==="admin"&&el.value!=="admin"&&!S.users.some(function(x){return x.id!==ur.id&&x.role==="admin"&&!x.baja})){el.value=ur.role;return toast("Debe quedar al menos una persona en Dirección")}ur.role=el.value;save();render();toast("Rol de "+ur.name+": "+rolNombre(ur.role))}}
+  else if(f==="urole"){var ur=user(id);if(ur&&esAdm()){ur.role=el.value;save();render();toast("Rol de "+ur.name+": "+rolNombre(ur.role))}}
+  else if(f==="univel"){var un=user(id);if(un&&esAdm()){if(!el.value&&esAdm(un)&&!S.users.some(function(x){return x.id!==un.id&&esAdm(x)})){el.value="administracion";return toast("Debe quedar al menos una persona en Administración")}if(el.value)un.nivel=el.value;else delete un.nivel;save();render();toast(un.name+(el.value?" ahora es de Administración":" ya no es de Administración"))}}
   else if(f==="accsel"){S.accSel=el.value;if(el.value){S.view="space";S.spaceId=el.value}else S.view="spaces";S.modal=null;S.toTop=true;render()}
-  else if(f==="uaprueba"){var ua=user(id);if(ua&&isAdmin()){ua.aprueba=!!el.checked;save();toast(ua.name+(ua.aprueba?" aprueba entregas":" ya no aprueba entregas"))}}
+  else if(f==="uaprueba"){var ua=user(id);if(ua&&esAdm()){ua.aprueba=!!el.checked;save();toast(ua.name+(ua.aprueba?" aprueba entregas":" ya no aprueba entregas"))}}
   else if(f==="team"){var ac=acc(id);if(ac&&isAdmin()){ac.team[el.getAttribute("data-role")]=el.value;save();toast("Equipo de la cuenta actualizado")}}
   else if(f==="ntlist"){var keep={t:val("nt-title"),d:val("nt-date"),p:val("nt-prio"),w:val("nt-who"),x:val("nt-desc")};S.modal.list=el.value;render();document.getElementById("nt-title").value=keep.t;document.getElementById("nt-date").value=keep.d;document.getElementById("nt-prio").value=keep.p;document.getElementById("nt-who").value=keep.w;document.getElementById("nt-desc").value=keep.x}
   else if(f==="abtype"){S.ab.type=el.value;if(S.ab.trig==="status")S.ab.tv=S.stat[S.ab.type][0].k;render()}
@@ -2617,6 +2654,7 @@ function handleSubmit(form){
     }else if(!SRV&&u.pass!==pw){S.err="La contraseña es incorrecta. Vuelve a intentarlo.";S.errField="p";S.lu=typed;render();var f2=document.getElementById("lp");if(f2)f2.focus();return}
     S.err="";S.errField="";S.lu="";S.session=u.id;try{sessionStorage.setItem(KEY+"-u",u.id)}catch(x){}applyPref();S.view="general";S.toTop=true;runDue();render();
   }else if(id==="addUser"){
+    if(!esAdm())return deny();
     var uid=val("nu-u").trim().toLowerCase(),er=document.getElementById("nuerr");
     if(!/^[a-z0-9._-]+$/.test(uid)){er.textContent="El usuario solo puede llevar letras sin acentos, números, punto, guion y guion bajo.";return}
     if(S.users.some(function(x){return x.id===uid})){er.textContent="Ese usuario ya existe.";return}
@@ -2983,7 +3021,7 @@ function cargarDelServidor(){
 // Al regresar de autorizar en Google: aviso, a Ajustes, y la URL queda limpia.
 function volverDeGoogle(){
   var q=new URLSearchParams(location.search),g=q.get("google");if(!g)return;
-  S.view="ajustes";GCAL.cargado=false;
+  S.view="admin";S.admTab="integraciones";GCAL.cargado=false;
   toast(g==="ok"?"Google Calendar conectado. Las reuniones del equipo con enlace ya mandan invitación.":"No se conectó Google Calendar: "+(q.get("motivo")||"intenta de nuevo"));
   q.delete("google");q.delete("motivo");try{history.replaceState(null,"",location.pathname+(q.toString()?"?"+q:""))}catch(e){}
 }
@@ -2991,10 +3029,10 @@ function iniciar(){
   function local(){SRV=null;load();if(S.session)runDue();render()}
   if(location.protocol==="file:"||typeof fetch!=="function")return local();
   var app=document.getElementById("app");if(app)app.textContent="Cargando…";
-  fetch("/api/yo",{headers:{"content-type":"application/json"},cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("sin servidor");return r.json()}).then(function(y){
+  fetch("/api/yo",{headers:(function(){var h={"content-type":"application/json"};try{var u=sessionStorage.getItem(KEY+"-u");if(u)h["X-Dev-User"]=u}catch(e){}return h})(),cache:"no-store"}) /* X-Dev-User solo cuenta en desarrollo (localhost) */.then(function(r){if(!r.ok)throw new Error("sin servidor");return r.json()}).then(function(y){
     if(!y||typeof y.dev!=="boolean")throw new Error("no es el servidor");
-    SRV={dev:y.dev,yo:y.yo||null,aviso:y.aviso||null,cursor:0};
-    return cargarDelServidor().then(function(){cargarCfg();if(S.session)runDue();volverDeGoogle();render()});
+    SRV={dev:y.dev,yo:y.yo||null,aviso:y.aviso||null,respaldo:!!y.respaldo,cursor:0};
+    return cargarDelServidor().then(function(){cargarCfg();if(S.session)runDue();if(enAdmin())S.view="admin";volverDeGoogle();render()});
   }).catch(function(e){if(SRV){if(app)app.textContent="No se pudo entrar: "+(e&&e.message||"error del servidor");return}local()});
 }
 /* Mezcla de cambios de tres vías. La usan el servidor (functions/_merge3.js, generado) y la pantalla (08-servidor).

@@ -3,16 +3,23 @@
 // dos personas editando lo mismo no se pisen. Los permisos se revisan AQUÍ, no solo en la pantalla.
 import { merge3, sj } from './merge3.js';
 import { verificarAccess } from './access.js';
-import { correosDelEquipo, sincronizarPoliticaAccess } from './access-politica.js';
-import { aEntidad, escribir, ErrorVisible } from './entidades.js';
+import { correosDelEquipo, correosAdministracion, sincronizarPoliticaAccess } from './access-politica.js';
+import { aEntidad, escribir, ErrorVisible, leerEntidad } from './entidades.js';
+import { registrar, listar as listarBitacora, describirPersona, describirAjuste } from './bitacora.js';
 import { manejarEntregas } from './entregas.js';
 import { prepararContacto } from './contactos.js';
 import { respaldar, estadoRespaldo } from './respaldo.js';
 import { configurado as googleConfigurado, estadoGoogle, urlConectar, completarConexion, desconectar, sincronizarActividad, sincronizarProximas } from './calendario.js';
 
 export const TIPOS = new Set(['user', 'account', 'list', 'task', 'cal', 'ag', 'auto', 'inbox', 'note', 'cols', 'stat', 'seen', 'pref', 'board', 'entrega', 'actividad', 'ajuste', 'contacto']);
-// Solo el rol admin escribe estos tipos (sección 5 del prompt).
-export const SOLO_ADMIN = new Set(['user', 'auto', 'stat', 'cols', 'ajuste']);
+// Niveles: Administración (Rodrigo y Dani) > Dirección (rol admin) > Equipo.
+// Solo Administración cambia el equipo y los permisos (`user`) y las reglas (`ajuste`); Dirección, la operación
+// (automatizaciones, estados y columnas de la pizarra).
+export const SOLO_ADMINISTRACION = new Set(['user', 'ajuste']);
+export const SOLO_ADMIN = new Set(['auto', 'stat', 'cols']);
+export const esAdministracion = (u) => !!u && u.nivel === 'administracion' && !u.baja;
+export const esDuenoRespaldo = (env, u) => !!u && !u.baja && !!(env.RESPALDO_DUENO || '').trim() && u.id === env.RESPALDO_DUENO.trim();
+const SOLO_ADM_MSG = 'Solo Administración (panel de administración) puede hacer esto';
 // `entrega` la escribe solo el servidor (rutas /api/entregas/*), que estampa autor y hora; por sync se rechaza.
 // `actividad` solo se añade: la pantalla puede crear la de tareas y juntas, pero el servidor pone `por` y `t`.
 export const SOLO_SERVIDOR = new Set(['entrega']);
@@ -130,7 +137,8 @@ function validarCambio(c) {
 // Permisos por cambio. Devuelve null si se permite, o el motivo del rechazo.
 export function permiso(usuario, c) {
 	if (SOLO_SERVIDOR.has(c.tipo)) return 'Esto lo registra solo el servidor';
-	if (SOLO_ADMIN.has(c.tipo) && usuario.role !== 'admin') return 'Solo Dirección puede cambiar esto';
+	if (SOLO_ADMINISTRACION.has(c.tipo) && !esAdministracion(usuario)) return SOLO_ADM_MSG;
+	if (SOLO_ADMIN.has(c.tipo) && usuario.role !== 'admin' && !esAdministracion(usuario)) return 'Solo Dirección puede cambiar esto';
 	return null;
 }
 
@@ -140,14 +148,14 @@ export async function motivoNoCambiarEquipo(env, c, usuario) {
 	if (c.datos && c.datos.baja && c.id === usuario.id) return 'No puedes darte de baja a ti mismo';
 	const despues = (await usuarios(env)).filter((u) => u.id !== c.id);
 	if (c.datos) despues.push({ ...c.datos, id: c.id });
-	if (!despues.some((u) => u.role === 'admin' && !u.baja)) return 'Debe quedar al menos una persona de Dirección activa';
+	if (!despues.some((u) => u.nivel === 'administracion' && !u.baja)) return 'Debe quedar al menos una persona de Administración activa';
 	return null;
 }
 
 // Eliminar una cuenta: solo Dirección, y solo si nada depende de ella (tareas, calendarios, entregas, contactos).
 // Sus listas vacías y su tablero se borran en el mismo cambio desde la pantalla.
 export async function motivoNoBorrarCuenta(env, id, usuario) {
-	if (usuario.role !== 'admin') return 'Solo Dirección puede eliminar cuentas';
+	if (!esAdministracion(usuario)) return 'Solo Administración puede eliminar cuentas';
 	const r = await env.DB.prepare(
 		"SELECT tipo, COUNT(*) AS n FROM entidades WHERE borrado = 0 AND ((tipo IN ('task', 'cal') AND json_extract(datos, '$.acc') = ?1) " +
 		"OR (tipo IN ('entrega', 'contacto') AND json_extract(datos, '$.cuentaId') = ?1)) GROUP BY tipo",
@@ -161,6 +169,17 @@ export async function motivoNoBorrarCuenta(env, id, usuario) {
 async function estadoActual(env, tipo, id) {
 	const f = await env.DB.prepare('SELECT tipo, id, datos, version, seq, creado, borrado FROM entidades WHERE tipo = ?1 AND id = ?2').bind(tipo, id).first();
 	return f ? aEntidad(f) : { tipo, id, datos: null, borrado: true };
+}
+
+// Deja en el historial un cambio sensible ya guardado (permisos, reglas, cuenta eliminada).
+async function anotarCambio(env, por, c, antes) {
+	const despues = await leerEntidad(env, c.tipo, c.id);
+	const a = antes && !antes.borrado ? antes.datos : null, d = despues && !despues.borrado ? despues.datos : null;
+	let e = null;
+	if (c.tipo === 'user') e = describirPersona(a, d);
+	else if (c.tipo === 'ajuste') e = describirAjuste(c.id, a, d);
+	else if (c.tipo === 'account' && a && !d) e = { accion: 'Cuenta eliminada', detalle: a.name || c.id };
+	if (e) await registrar(env, por, e.accion, e.detalle);
 }
 
 // Trabajo que sigue después de responder (si no hay ctx, como en las pruebas, se espera).
@@ -182,7 +201,7 @@ export async function manejarApi(request, env, ctx) {
 		const q = await quien(request, env);
 
 		if (ruta === 'yo' && metodo === 'GET') {
-			return resp({ dev: q.dev, yo: q.usuario ? q.usuario.id : null, aviso: q.usuario ? null : q.motivo || null });
+			return resp({ dev: q.dev, yo: q.usuario ? q.usuario.id : null, aviso: q.usuario ? null : q.motivo || null, ...(esDuenoRespaldo(env, q.usuario) ? { respaldo: true } : {}) });
 		}
 
 		if (ruta === 'seed' && metodo === 'POST') {
@@ -248,6 +267,8 @@ export async function manejarApi(request, env, ctx) {
 				}
 				// Un cambio que no se puede guardar se rechaza solo: si tronara toda la solicitud, la pantalla lo reintentaría
 				// para siempre y nada de lo demás se guardaría.
+				const sensible = c.tipo === 'user' || c.tipo === 'ajuste' || (c.tipo === 'account' && c.datos === null);
+				const antes = sensible ? await leerEntidad(env, c.tipo, c.id) : null;
 				try {
 					await aplicarCambio(env, c, q.usuario.id);
 				} catch (err) {
@@ -257,12 +278,18 @@ export async function manejarApi(request, env, ctx) {
 				}
 				if (c.tipo === 'user') cambioEquipo = true;
 				if (c.tipo === 'ag') actividades.push(c.id);
+				if (sensible) await anotarCambio(env, q.usuario.id, c, antes);
 			}
 			// Reuniones del equipo con enlace: invitación de Google Calendar (después de responder, sin hacer esperar).
 			if (actividades.length) enSegundoPlano(ctx, Promise.all(actividades.map((id) => sincronizarActividad(env, id))));
 			// Si cambió el equipo, la lista de correos de Cloudflare Access se pone igual a la de la base.
 			let aviso;
 			if (cambioEquipo) {
+				// El panel /admin tiene su propia política de Access: solo los correos de Administración.
+				if ((env.ACCESS_POLITICA_ADMIN_ID || '').trim()) {
+					const ra = await sincronizarPoliticaAccess({ ...env, ACCESS_POLITICA_ID: env.ACCESS_POLITICA_ADMIN_ID }, await correosAdministracion(env));
+					if (!ra.ok) aviso = `Se guardó, pero el acceso al panel de administración en Cloudflare no se actualizó: ${ra.motivo}.`;
+				}
 				const r = await sincronizarPoliticaAccess(env, await correosDelEquipo(env));
 				if (!r.ok) aviso = `Se guardó en el equipo, pero Cloudflare Access no se actualizó: ${r.motivo}. Corrige la lista de correos de la política a mano en el dashboard.`;
 			}
@@ -274,18 +301,26 @@ export async function manejarApi(request, env, ctx) {
 			return resp({ entidades, cursor, mas, ...(rechazados.length ? { rechazados } : {}), ...(aviso ? { aviso } : {}) });
 		}
 
-		// Respaldo (F5): solo Dirección ve el estado y lanza uno a mano.
+		// Historial del panel de administración.
+		if (ruta === 'admin/bitacora' && metodo === 'GET') {
+			if (!q.usuario) return error(401, q.motivo || 'No autenticado');
+			if (!esAdministracion(q.usuario)) return error(403, SOLO_ADM_MSG);
+			return resp({ bitacora: await listarBitacora(env) });
+		}
+
+		// Respaldo (F5): solo la persona dueña del respaldo (RESPALDO_DUENO, variable del Worker; hoy, Rodrigo) ve su
+		// estado y lanza uno a mano. Se decide en Cloudflare, no en el panel, para que nadie se dé ese permiso.
 		if (ruta === 'respaldo/estado' || ruta === 'respaldo/ahora') {
 			if (!q.usuario) return error(401, q.motivo || 'No autenticado');
-			if (q.usuario.role !== 'admin') return error(403, 'Solo Dirección');
+			if (!esDuenoRespaldo(env, q.usuario)) return error(403, 'Solo la persona dueña del respaldo puede ver esto');
 			if (ruta === 'respaldo/estado' && metodo === 'GET') return resp({ repo: (env.RESPALDO_REPO || '').trim() || null, configurado: !!(env.RESPALDO_REPO && env.GITHUB_TOKEN_RESPALDO), ultimo: await estadoRespaldo(env) });
 			if (ruta === 'respaldo/ahora' && metodo === 'POST') return resp(await respaldar(env, { origen: 'manual' }));
 		}
 
-		// Google Calendar: solo Dirección conecta o desconecta la cuenta que manda las invitaciones.
+		// Google Calendar: solo Administración conecta o desconecta la cuenta que manda las invitaciones.
 		if (ruta.startsWith('google/')) {
 			if (!q.usuario) return error(401, q.motivo || 'No autenticado');
-			if (q.usuario.role !== 'admin') return error(403, 'Solo Dirección');
+			if (!esAdministracion(q.usuario)) return error(403, SOLO_ADM_MSG);
 			const origen = url.origin;
 			if (ruta === 'google/estado' && metodo === 'GET') return resp(await estadoGoogle(env));
 			if (!googleConfigurado(env)) return error(409, 'Falta configurar Google (secretos GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET)');
@@ -293,9 +328,10 @@ export async function manejarApi(request, env, ctx) {
 			if (ruta === 'google/callback' && metodo === 'GET') {
 				const r = await completarConexion(env, origen, url.searchParams.get('code'), url.searchParams.get('state'));
 				if (r.ok) enSegundoPlano(ctx, sincronizarProximas(env));
-				return Response.redirect(`${origen}/?google=${r.ok ? 'ok' : 'error&motivo=' + encodeURIComponent(r.motivo)}`, 302);
+				await registrar(env, q.usuario.id, 'Google Calendar', r.ok ? 'conectado' : `no se conectó: ${r.motivo}`);
+				return Response.redirect(`${origen}/admin?google=${r.ok ? 'ok' : 'error&motivo=' + encodeURIComponent(r.motivo)}`, 302);
 			}
-			if (ruta === 'google/desconectar' && metodo === 'POST') { await desconectar(env); return resp({ ok: true }); }
+			if (ruta === 'google/desconectar' && metodo === 'POST') { await desconectar(env); await registrar(env, q.usuario.id, 'Google Calendar', 'desconectado'); return resp({ ok: true }); }
 		}
 
 		if (ruta.startsWith('entregas/')) {

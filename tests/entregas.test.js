@@ -17,7 +17,7 @@ const LOCAL = 'http://localhost:8787';
 const MIB = 1024 * 1024;
 
 // Datos ficticios de prueba (no son el equipo ni los clientes reales).
-const ANA = { id: 'ana', name: 'Ana', role: 'admin', email: 'ana@agencia.test', aprueba: true };
+const ANA = { id: 'ana', name: 'Ana', role: 'admin', nivel: 'administracion', email: 'ana@agencia.test', aprueba: true };
 const BETO = { id: 'beto', name: 'Beto', role: '', email: 'beto@agencia.test', aprueba: false };
 const CARO = { id: 'caro', name: 'Caro', role: '', email: 'caro@agencia.test', aprueba: false };
 const ana = 'ana@agencia.test', beto = 'beto@agencia.test', caro = 'caro@agencia.test';

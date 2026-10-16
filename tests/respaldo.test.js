@@ -24,8 +24,9 @@ async function poner(env, tipo, id, datos, borrado = 0) {
 	]);
 }
 async function base() {
-	const env = { DB: d1Falso(), ENTREGAS: r2Falso(), ACCESS_EQUIPO: EQUIPO, ACCESS_AUD: AUD, RESPALDO_REPO: 'agencia/respaldos', GITHUB_TOKEN_RESPALDO: 'tok-prueba', ASSETS: { fetch: () => new Response('') } };
-	await poner(env, 'user', 'ana', { id: 'ana', name: 'Ana', role: 'admin', email: 'ana@agencia.test' });
+	const env = { DB: d1Falso(), ENTREGAS: r2Falso(), ACCESS_EQUIPO: EQUIPO, ACCESS_AUD: AUD, RESPALDO_REPO: 'agencia/respaldos', RESPALDO_DUENO: 'ana', GITHUB_TOKEN_RESPALDO: 'tok-prueba', ASSETS: { fetch: () => new Response('') } };
+	await poner(env, 'user', 'ana', { id: 'ana', name: 'Ana', role: 'admin', nivel: 'administracion', email: 'ana@agencia.test' });
+	await poner(env, 'user', 'dora', { id: 'dora', name: 'Dora', role: 'admin', nivel: 'administracion', email: 'dora@agencia.test' });
 	await poner(env, 'user', 'beto', { id: 'beto', name: 'Beto', role: '', email: 'beto@agencia.test' });
 	await poner(env, 'account', 'c1', { id: 'c1', name: "Cliente D'Uno" });
 	await poner(env, 'task', 't1', { id: 't1', acc: 'c1', title: 'Reel «otoño»', com: [{ x: "it's ok" }] });
@@ -42,7 +43,7 @@ test('restaurar sobre una base vacía la deja idéntica al respaldo, incluido un
 	const env = await base();
 	const r = JSON.parse(JSON.stringify(await exportarBase(env, 'prueba')));
 	assert.equal(validarRespaldo(r), null);
-	assert.equal(r.entidades.length, 6);
+	assert.equal(r.entidades.length, 7);
 	const vacia = { DB: d1Falso() };
 	const sql = sqlRestauracion(r, await filas(vacia), 0);
 	assert.ok(sql.split('\n').every((linea) => Buffer.byteLength(linea) < 100_000), 'ninguna sentencia pasa de 100 KB');
@@ -125,15 +126,15 @@ test('respaldo a un repo privado: un commit con la base y el manifiesto del día
 	assert.deepEqual(arbol.tree.map((x) => x.path), ['datos/2026-10-13.json', 'archivos-r2/2026-10-13.json']);
 	const respaldo = JSON.parse(gh.blobs[arbol.tree[0].sha]);
 	assert.equal(validarRespaldo(respaldo), null);
-	assert.equal(respaldo.entidades.length, 6);
+	assert.equal(respaldo.entidades.length, 7);
 	assert.deepEqual(gh.commits[gh.cabeza()].parents, ['c0']);
-	assert.match(gh.commits[gh.cabeza()].message, /^Respaldo 2026-10-13 \(cron\): 6 elementos, 0 archivos en R2$/);
+	assert.match(gh.commits[gh.cabeza()].message, /^Respaldo 2026-10-13 \(cron\): 7 elementos, 0 archivos en R2$/);
 	const estado = JSON.parse((await env.DB.prepare("SELECT valor FROM meta WHERE clave = 'respaldo'").first()).valor);
 	assert.equal(estado.ok, true);
 	assert.equal(estado.commit, gh.cabeza());
 });
 
-test('si el repo NO es privado, se aborta sin mandar datos y Dirección recibe el aviso', async () => {
+test('si el repo NO es privado, se aborta sin mandar datos y solo la persona dueña recibe el aviso', async () => {
 	const env = await base();
 	const gh = gitHubFalso({ privado: false });
 	const r = await respaldar(env, { buscar: gh.buscar, ahora });
@@ -166,12 +167,16 @@ test('un repo recién creado y vacío se inicia con un README y luego recibe el 
 });
 
 // ---------- rutas ----------
-test('solo Dirección consulta el estado del respaldo o lanza uno a mano', async () => {
+test('solo la persona dueña del respaldo lo consulta o lanza uno (ni otra persona de Administración)', async () => {
 	_reiniciarCache();
 	const env = await base();
 	const pedir = async (ruta, como, metodo = 'GET') => (await worker.fetch(new Request(PROD + '/api/' + ruta, { method: metodo, headers: { 'Cf-Access-Jwt-Assertion': await identidad(como) } }), env));
 	assert.equal((await pedir('respaldo/estado', 'beto@agencia.test')).status, 403);
 	assert.equal((await pedir('respaldo/ahora', 'beto@agencia.test', 'POST')).status, 403);
+	assert.equal((await pedir('respaldo/estado', 'dora@agencia.test')).status, 403);
+	assert.equal((await pedir('respaldo/ahora', 'dora@agencia.test', 'POST')).status, 403);
+	assert.equal((await (await pedir('yo', 'dora@agencia.test')).json()).respaldo, undefined);
+	assert.equal((await (await pedir('yo', 'ana@agencia.test')).json()).respaldo, true);
 	const r = await (await pedir('respaldo/estado', 'ana@agencia.test')).json();
 	assert.deepEqual(r, { repo: 'agencia/respaldos', configurado: true, ultimo: null });
 });
