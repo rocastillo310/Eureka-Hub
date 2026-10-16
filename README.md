@@ -98,6 +98,10 @@ Se suben desde la vista **Entregas** (o arrastrando archivos a cualquier pantall
 - **Almacenamiento:** Ajustes muestra lo usado contra los 10 GB gratis de R2 (son de toda la cuenta de Cloudflare) y avisa desde el 80 %. Lo que pase se cobra por GB al mes; descargar no cuesta.
 - Las subidas que se quedan a medias las cancela R2 solo a los 7 días.
 
+## Tareas: lo obligatorio
+
+Toda tarea creada a mano («Nueva tarea», la fila rápida de una lista, el formulario de solicitudes) exige **a quién se le asigna** (la persona o uno mismo), **qué tiene que hacer** y **para cuándo**. La fila rápida ya no crea la tarea solo con el título: abre el formulario con lo escrito. Al crearla se pueden adjuntar archivos (PDF, presentaciones, documentos…): se suben como entregas ligadas a la tarea y se ven en su sección «Archivos y entregas», con versiones y aprobación. Las tareas que crea el sistema (calendario aprobado, pendientes de junta, nota de la pizarra) toman su responsable de la cuenta o de la nota; si alguna queda sin nadie, la tarea lo avisa.
+
 ## Área general y aprobaciones (F3)
 
 - **Área general** es la pantalla de inicio: la actividad del equipo (entregas, aprobaciones, tareas creadas, movidas o asignadas) y «Quién tiene qué» (tareas abiertas por persona contra su capacidad).
