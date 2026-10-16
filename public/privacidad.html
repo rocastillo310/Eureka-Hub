@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aviso de privacidad · Eureka Hub</title>
+<style>
+:root{--bg:#EEF1F0;--surface:#FFFFFF;--ink:#15211F;--muted:#5B6B68;--line:#D8E0DD;--accent:#0E6F66;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0E1514;--surface:#162120;--ink:#E6EFED;--muted:#93A5A1;--line:#2A3B39;--accent:#3FB5A8;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:720px;margin:0 auto;padding:40px 16px 64px}
+article{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px clamp(16px,4vw,36px)}
+h1{font-size:28px;line-height:1.2;margin:0 0 4px}
+h2{font-size:18px;margin:28px 0 6px}
+p,li{margin:0 0 10px}
+.muted{color:var(--muted)}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+<article>
+<h1>Aviso de privacidad</h1>
+<p class="muted">Centro Eureka Hub · última actualización: 16 de octubre de 2026</p>
+
+<p>Eureka Hub es la plataforma interna del equipo de la agencia Eureka Hub para organizar tareas, entregas, calendarios y contactos de clientes. Solo entran las personas del equipo que Dirección dio de alta.</p>
+
+<h2>Qué datos usamos</h2>
+<ul>
+<li><b>Del equipo:</b> nombre, correo con el que entra y rol, para identificar a cada persona y darle acceso.</li>
+<li><b>Del trabajo:</b> tareas, comentarios, archivos entregados, actividades de la agenda y contactos de clientes que el propio equipo captura.</li>
+<li><b>De Google Calendar:</b> si Dirección conecta su cuenta de Google, el Hub solo crea, actualiza y cancela en ese calendario los eventos de las reuniones del equipo que se agendan en el Hub, e invita a los correos del equipo. No lee ni modifica otros eventos de la cuenta.</li>
+</ul>
+
+<h2>Para qué y con quién</h2>
+<p>Los datos se usan solo para que el equipo trabaje. No se venden, no se usan para publicidad y no se comparten con terceros, salvo los servicios que hacen funcionar la plataforma: Cloudflare (servidor, base de datos, archivos y control de acceso), GitHub (respaldo privado de la base) y Google (invitaciones de calendario).</p>
+<p>El uso de la información recibida de las APIs de Google se apega a la <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">política de datos de usuario de los servicios de API de Google</a>, incluidos los requisitos de uso limitado.</p>
+
+<h2>Cómo se protegen</h2>
+<p>El acceso pasa por Cloudflare Access y solo se permite a los correos del equipo. La llave de Google Calendar se guarda en el servidor y no se incluye en los respaldos.</p>
+
+<h2>Cómo retirar el permiso</h2>
+<p>Dirección puede desconectar Google Calendar en Ajustes del Hub, o retirar el permiso en cualquier momento desde <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>. Para dar de baja a una persona del equipo o pedir que se borren sus datos, escribe a Dirección de Eureka Hub.</p>
+</article>
+</main>
+</body>
+</html>
