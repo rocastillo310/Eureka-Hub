@@ -108,6 +108,7 @@ Toda tarea creada a mano («Nueva tarea», la fila rápida de una lista, el form
 ## Área general y aprobaciones (F3)
 
 - **Área general** es la pantalla de inicio: la actividad del equipo (entregas, aprobaciones, tareas creadas, movidas o asignadas) y «Quién tiene qué» (tareas abiertas por persona contra su capacidad).
+- **«Ya se realizó» / «hecha»:** las actividades del equipo tienen una casilla «Ya se realizó» (Mi día, Área general, Agenda y su formulario); quedan tachadas con quién las marcó. Las tareas tienen casilla en «Tareas», Mi día y dentro de la tarea: marcarla la pasa a su etapa final; desmarcarla la regresa a la anterior.
 - **Limpieza semanal:** cada lunes a las 0:00 en Guadalajara (cron `0 6 * * 1`, `src/semanal.js`), las actividades de tareas en su etapa final o borradas y de entregas aprobadas, en la papelera o borradas salen de «Actividad del equipo» y pasan a su pestaña «Historial» (se marcan `archivada`, no se borran). Cada limpieza queda en el historial del panel de administración.
 - **Actividad:** solo se añade. El servidor la crea para entregas y aprobaciones; la pantalla la crea para tareas, pero el servidor pone quién y cuándo, y no deja editarla ni borrarla.
 - **Aprobación:** aprueba quien tiene «Aprueba entregas» en Equipo (`POST /api/entregas/decidir`). «Pedir cambios» exige comentario y regresa la entrega a quien la subió. Una versión nueva vuelve a «pendiente»; las decisiones de cada versión se conservan.

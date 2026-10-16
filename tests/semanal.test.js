@@ -67,3 +67,17 @@ test('el cron de los lunes corre la limpieza y no el respaldo', async () => {
 	assert.ok((await leer(env, 'a1')).archivada);
 	assert.equal(await env.DB.prepare("SELECT valor FROM meta WHERE clave = 'respaldo'").first(), null);
 });
+
+test('las actividades del equipo marcadas «Ya se realizó» salen el lunes; las pendientes y las personales se quedan', async () => {
+	const env = await entorno();
+	await poner(env, 'ag', 'r1', { id: 'r1', owner: 'todos', title: 'Reunión', date: '2026-10-16', done: true, doneBy: 'ana' });
+	await poner(env, 'ag', 'r2', { id: 'r2', owner: 'todos', title: 'Otra', date: '2026-10-20' });
+	await poner(env, 'ag', 'r3', { id: 'r3', owner: 'ana', title: 'Personal', date: '2026-10-16', done: true });
+	await archivarTerminadas(env, new Date('2026-10-19T06:00:00Z'));
+	const ag = async (id) => JSON.parse((await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'ag' AND id = ?1").bind(id).first()).datos);
+	assert.ok((await ag('r1')).archivada);
+	assert.equal((await ag('r2')).archivada, undefined);
+	assert.equal((await ag('r3')).archivada, undefined);
+	const b = (await env.DB.prepare('SELECT detalle FROM bitacora').all()).results;
+	assert.match(b[0].detalle, /1 actividad del equipo realizada salió de Mi día/);
+});
