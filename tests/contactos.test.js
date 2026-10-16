@@ -12,7 +12,7 @@ globalThis.fetch = buscar;
 const PROD = 'https://eureka-hub.cuenta.workers.dev';
 
 // Datos ficticios de prueba (no son el equipo ni los clientes reales).
-const ana = 'ana@agencia.test', beto = 'beto@agencia.test', caro = 'caro@agencia.test';
+const ana = 'ana@agencia.test', beto = 'beto@agencia.test', caro = 'caro@agencia.test', jess = 'jess@agencia.test';
 
 async function poner(env, tipo, id, datos) {
 	await env.DB.batch([
@@ -24,7 +24,8 @@ async function poner(env, tipo, id, datos) {
 async function entorno() {
 	_reiniciarCache();
 	const env = { DB: d1Falso(), ACCESS_EQUIPO: EQUIPO, ACCESS_AUD: AUD, ASSETS: { fetch: () => new Response('') } };
-	await poner(env, 'user', 'ana', { id: 'ana', name: 'Ana', role: 'admin', email: ana });
+	await poner(env, 'user', 'ana', { id: 'ana', name: 'Ana', role: 'admin', nivel: 'administracion', email: ana });
+	await poner(env, 'user', 'jess', { id: 'jess', name: 'Jess', role: 'admin', email: jess });
 	await poner(env, 'user', 'beto', { id: 'beto', name: 'Beto', role: '', email: beto });
 	await poner(env, 'user', 'caro', { id: 'caro', name: 'Caro', role: '', email: caro });
 	await poner(env, 'account', 'c1', { id: 'c1', name: 'Cliente Uno' });
@@ -104,18 +105,19 @@ const cuenta = async (env, id) => {
 };
 const borrarCuenta = (env, como, id, base) => sync(env, como, [{ tipo: 'account', id, base, datos: null }]);
 
-test('eliminar una cuenta: solo Dirección y solo si no tiene tareas, calendarios, entregas ni contactos', async () => {
+test('eliminar una cuenta: solo Administración y solo si no tiene tareas, calendarios, entregas ni contactos', async () => {
 	const env = await entorno();
 	const c2 = await cuenta(env, 'c2');
-	assert.match((await borrarCuenta(env, beto, 'c2', c2)).rechazados[0].motivo, /Solo Dirección/);
+	assert.match((await borrarCuenta(env, beto, 'c2', c2)).rechazados[0].motivo, /Solo Administración/);
+	assert.match((await borrarCuenta(env, jess, 'c2', c2)).rechazados[0].motivo, /Solo Administración/, 'Dirección sin Administración tampoco');
 	assert.ok(await cuenta(env, 'c2'));
-	// Con un contacto y una tarea, ni Dirección la puede eliminar.
+	// Con un contacto y una tarea, ni Administración la puede eliminar.
 	await sync(env, beto, [nuevo({ id: 'k1', cuentaId: 'c1', nombre: 'Laura' })]);
 	await poner(env, 'task', 't1', { id: 't1', acc: 'c1', title: 'Reel' });
 	const c1 = await cuenta(env, 'c1');
 	assert.match((await borrarCuenta(env, ana, 'c1', c1)).rechazados[0].motivo, /1 tareas, 1 contactos|1 contactos, 1 tareas/);
 	assert.ok(await cuenta(env, 'c1'));
-	// Vacía, Dirección sí la elimina.
+	// Vacía, Administración sí la elimina.
 	assert.equal((await borrarCuenta(env, ana, 'c2', c2)).rechazados, undefined);
 	assert.equal(await cuenta(env, 'c2'), null);
 });

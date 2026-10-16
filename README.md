@@ -118,6 +118,22 @@ Se suben desde la vista **Entregas** (o arrastrando archivos a cualquier pantall
 
 Ajustes → **Apariencia**: claro, oscuro o «como el sistema». Se guarda por persona y se aplica antes de pintar la pantalla.
 
+## Panel de administración y niveles
+
+Tres niveles:
+
+| Nivel | Quién | Qué puede |
+|---|---|---|
+| **Administración** | Rodrigo y Dani (`nivel: "administracion"` en su usuario) | Todo, más el panel: personas (alta, baja, nivel, rol, quién aprueba), reglas de aprobación, Google Calendar, almacenamiento, eliminar cuentas e historial. |
+| **Dirección** | rol `admin` sin nivel (hoy, Jessy) | Cuentas, listas, tareas, entregas, automatizaciones, estados y columnas de la pizarra. |
+| **Equipo** | los demás | Su trabajo, como hasta ahora. |
+
+- El panel vive en **`/admin`** (la misma app). Cloudflare Access lo protege con **otra aplicación y otra política** que solo permite los correos de Administración, así que vuelve a pedir correo y código. Además, el servidor revisa el nivel en cada cambio (`src/api.js`: `SOLO_ADMINISTRACION`, `esAdministracion`).
+- Siempre queda al menos una persona de Administración activa y nadie se da de baja a sí mismo.
+- Al cambiar el nivel de alguien, el Worker actualiza también la política del panel (secreto `ACCESS_POLITICA_ADMIN_ID`).
+- **Historial:** tabla `bitacora` (migración `0003`), solo se añade; lo leen Administración en `/api/admin/bitacora`. No se sincroniza a las pantallas del resto.
+- **Respaldo:** solo lo ve y lo lanza la persona de `RESPALDO_DUENO` (variable en `wrangler.jsonc`, hoy `rodrigo`), y solo ella recibe el aviso si falla. Se cambia en Cloudflare, no en el panel, para que nadie se dé ese permiso desde el Hub.
+
 ## Invitaciones de Google Calendar
 
 Cuando una actividad de la Agenda es **«Para todo el equipo»** y tiene **enlace de reunión** (Google Meet u otro), el Worker crea el evento en el Google Calendar de la cuenta que conectó Dirección e invita a cada persona activa del equipo. **Google les manda el correo de invitación** y les queda en su calendario con recordatorio. Cambiar fecha, hora, título o enlace actualiza la invitación; borrar la actividad o quitarle el enlace la cancela. Editar solo las notas no vuelve a mandar correos. Quien está dado de baja no recibe invitaciones.
@@ -144,7 +160,7 @@ npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 ```
 
-8. En el Hub: Ajustes → «Invitaciones de Google Calendar» → **Conectar Google Calendar** → elige la cuenta desde la que saldrán las invitaciones. Google avisa «Google no verificó esta app» (es normal en una app interna): Configuración avanzada → Ir a Eureka Hub → permite ver y editar eventos → Continuar. Al volver, se mandan solas las invitaciones de las reuniones del equipo que aún no pasan.
+8. En el Hub: Panel de administración → «Integraciones y respaldo» → **Conectar Google Calendar** → elige la cuenta desde la que saldrán las invitaciones. Google avisa «Google no verificó esta app» (es normal en una app interna): Configuración avanzada → Ir a Eureka Hub → permite ver y editar eventos → Continuar. Al volver, se mandan solas las invitaciones de las reuniones del equipo que aún no pasan.
 
 Si Google retira el permiso (cambias la contraseña, lo quitas en tu cuenta de Google), Ajustes muestra el error: vuelve a dar «Conectar Google Calendar».
 
@@ -155,7 +171,7 @@ Cada día a las **3:00 a. m. (Guadalajara)** el Worker guarda en el repo **priva
 - `datos/AAAA-MM-DD.json`: la base completa (también lo borrado), lista para restaurar.
 - `archivos-r2/AAAA-MM-DD.json`: la lista de archivos de Entregas en R2 (llave, tamaño y huella). **Los archivos no se copian** (ver abajo).
 
-Antes de escribir, el Worker revisa por la API de GitHub que el repo exista, sea el configurado y sea **privado**; si no, **aborta sin mandar nada**. Cada resultado queda en Ajustes → «Respaldo de la base» (solo Dirección), con botón «Respaldar ahora». Si el respaldo automático falla, Dirección recibe un aviso en la Bandeja.
+Antes de escribir, el Worker revisa por la API de GitHub que el repo exista, sea el configurado y sea **privado**; si no, **aborta sin mandar nada**. Cada resultado queda en el Panel de administración → «Integraciones y respaldo» → «Respaldo de la base», con botón «Respaldar ahora»; ese panel y el aviso de falla son solo para la persona de `RESPALDO_DUENO`.
 
 Los Cron Triggers corren en UTC: `0 9 * * *` en `wrangler.jsonc` son las 3:00 a. m. en Guadalajara (UTC−6, sin horario de verano). El mismo cron, después del respaldo, vacía la papelera de la Pizarra Kanban (notas con 7 días o más; `src/limpieza.js`).
 
@@ -214,7 +230,7 @@ En Windows usa `npx.cmd` si PowerShell bloquea `npx`.
 
 ### Dar de alta a alguien
 
-1. Entra como Dirección → **Equipo** → «Agregar persona».
+1. Entra al **Panel de administración** (`/admin`) → «Personas y permisos» → «Agregar persona».
    - **Nombre** y **Usuario** (corto, sin espacios, p. ej. `benja`; es su identificador interno y no se cambia después).
    - **Rol** y **Correo con el que entra**: el correo donde le llegará el código para entrar.
    - **Cuentas a las que se suma** y, si aplica, marca «Aprueba entregas» en su fila.
@@ -223,7 +239,7 @@ En Windows usa `npx.cmd` si PowerShell bloquea `npx`.
 
 ### Dar de baja a alguien
 
-Equipo → en su fila, «Dar de baja» → toca de nuevo para confirmar.
+Panel de administración → «Personas y permisos» → en su fila, «Dar de baja» → toca de nuevo para confirmar.
 
 - Pierde el acceso al momento: el servidor ya no la deja entrar y su correo sale de la política de Access.
 - No se borra: su nombre se conserva en el historial, actividad y comentarios. Deja de aparecer para asignar, mencionar, avisar o aprobar, y sale del equipo de cada cuenta.
@@ -242,8 +258,8 @@ Equipo → en su fila, «Dar de baja» → toca de nuevo para confirmar.
 | «Algo falló al mostrar esta pantalla» | La pantalla no pudo mostrar algún dato. Los datos están a salvo en el servidor. | «Volver al inicio». Si se repite, manda el mensaje que aparece. |
 | Access no deja entrar a alguien, o dice «Ese correo no está dado de alta» | Su correo no está en la política de Access o no está en **Equipo** (tienen que ser el mismo). | Revisa los dos; corrige el correo en el que falte. |
 | Aviso «Cloudflare Access no se actualizó» | El token `CF_API_TOKEN` venció o perdió el permiso *Access: Policies Write*. | Agrega el correo a mano (arriba), renueva el token en el dashboard y guárdalo: `npx wrangler secret put CF_API_TOKEN`. |
-| Aviso en la Bandeja «El respaldo diario falló: …» | Venció el token de GitHub, cambió el repo o dejó de ser privado (el Worker aborta antes de mandar datos). | Ajustes → «Respaldo de la base» dice el motivo. Renueva el token ([Conectar GitHub](#conectar-github-una-vez-lo-hace-dirección)) y da «Respaldar ahora». |
-| No llegan las invitaciones de una reunión | Google Calendar no está conectado o Google retiró el permiso. | Ajustes → «Invitaciones de Google Calendar» dice el motivo; da «Conectar Google Calendar». Solo invita a actividades «Para todo el equipo» con enlace. |
+| Aviso en la Bandeja «El respaldo diario falló: …» | Venció el token de GitHub, cambió el repo o dejó de ser privado (el Worker aborta antes de mandar datos). | Panel de administración → «Integraciones y respaldo» → «Respaldo de la base» (solo Rodrigo) dice el motivo. Renueva el token ([Conectar GitHub](#conectar-github-una-vez-lo-hace-dirección)) y da «Respaldar ahora». |
+| No llegan las invitaciones de una reunión | Google Calendar no está conectado o Google retiró el permiso. | Panel de administración → «Integraciones y respaldo» dice el motivo; da «Conectar Google Calendar». Solo invita a actividades «Para todo el equipo» con enlace. |
 | Una subida se detiene | Se cortó la conexión a medio archivo. | «Reintentar» manda solo las partes que faltan. Más de 4 GB no se acepta. |
 | Aviso de almacenamiento al 80 % | Las entregas se acercan a los 10 GB gratis de R2. | Vacía la papelera de Entregas o decide si se paga el excedente. |
 

@@ -7,6 +7,9 @@ export default {
 	async fetch(request, env, ctx) {
 		const url = new URL(request.url);
 		if (url.pathname === '/api' || url.pathname.startsWith('/api/')) return manejarApi(request, env, ctx);
+		// Panel de administración: la misma app (abre en la vista del panel). Cloudflare Access protege /admin con su
+		// propia política (solo Administración) y el servidor vuelve a revisar el nivel en cada cambio.
+		if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) return env.ASSETS.fetch(new Request(new URL('/', url), request));
 		return env.ASSETS.fetch(request);
 	},
 	// Cada día a las 09:00 UTC = 3:00 a. m. en Guadalajara (cron de wrangler.jsonc): respaldo (F5) y, después,
