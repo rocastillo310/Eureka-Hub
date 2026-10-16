@@ -1,4 +1,5 @@
 // Limpieza semanal del Área general: cada lunes a las 0:00 (Guadalajara) las actividades de cosas ya terminadas
+// (y las actividades del equipo marcadas «Ya se realizó»)
 // salen de «Actividad del equipo» y pasan a su «Historial». No se borran: se marcan con `archivada` y la limpieza
 // queda en el historial del panel de administración.
 // Terminado = tarea en su etapa final (Publicada / Entregada) o borrada; entrega aprobada, en la papelera o borrada.
@@ -45,6 +46,16 @@ export async function archivarTerminadas(env, ahora = new Date()) {
 		await guardarDelServidor(env, 'actividad', id, (x) => (x && !x.archivada ? { ...x, archivada: { en } } : undefined), 'servidor');
 		n++;
 	}
-	if (n) await registrar(env, 'servidor', 'Limpieza semanal', `${n} ${n === 1 ? 'actividad terminada pasó' : 'actividades terminadas pasaron'} al historial del Área general`);
-	return n;
+	// Actividades del equipo (Agenda) marcadas «Ya se realizó»: dejan de verse en Mi día y en el Área general.
+	let r = 0;
+	for (const [id, x] of await filas(env, 'ag')) {
+		if (x.borrado || !x.datos.done || x.datos.archivada || x.datos.owner !== 'todos') continue;
+		await guardarDelServidor(env, 'ag', id, (y) => (y && y.done && !y.archivada ? { ...y, archivada: { en } } : undefined), 'servidor');
+		r++;
+	}
+	const partes = [];
+	if (n) partes.push(`${n} ${n === 1 ? 'actividad terminada pasó' : 'actividades terminadas pasaron'} al historial del Área general`);
+	if (r) partes.push(`${r} ${r === 1 ? 'actividad del equipo realizada salió' : 'actividades del equipo realizadas salieron'} de Mi día`);
+	if (partes.length) await registrar(env, 'servidor', 'Limpieza semanal', partes.join('; '));
+	return n + r;
 }

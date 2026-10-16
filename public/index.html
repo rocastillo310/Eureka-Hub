@@ -410,6 +410,10 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px;color:
 .tlink{color:var(--accent);text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
 .cmx{white-space:pre-line;overflow-wrap:anywhere}
 .tlinks{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px}.tlinks .fchip{text-decoration:none;color:var(--accent);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tline{display:flex;align-items:stretch;gap:8px}.tline>.item{flex:1;min-width:0}
+.tchk{display:flex;align-items:center;padding:0 2px;cursor:pointer}.tchk input{width:20px;height:20px;cursor:pointer}
+.tline.hecha .item .t,.eqrow.hecha .t{text-decoration:line-through;color:var(--muted)}
+.rchk{white-space:nowrap}.hecho-chk{align-self:flex-start}
 .dropzone{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;text-align:center;border:2px dashed var(--line);border-radius:12px;padding:18px;color:var(--muted);cursor:pointer;background:var(--surface);width:100%;font:inherit}
 .dropzone:hover,.dropzone:focus-within,body.arrastrando .dropzone{border-color:var(--accent);color:var(--accent)}
 body.arrastrando main{outline:3px dashed var(--accent);outline-offset:-6px}
@@ -838,6 +842,11 @@ function view(){
 }
 
 /* ---------- piezas pequeñas ---------- */
+// Tarea con casilla para marcarla hecha sin abrirla (Mi día y Tareas).
+function taskLineCheck(t){
+  var hecha=isFinal(t),ed=canEdit(t);
+  return '<div class="tline'+(hecha?" hecha":"")+'"><label class="tchk" title="'+(hecha?"Desmarcar: regresa a la etapa anterior":"Marcar como hecha")+'"><input type="checkbox" data-act="tdone" data-id="'+t.id+'"'+(hecha?" checked":"")+(ed?"":" disabled")+' aria-label="'+(hecha?"Hecha: desmarcar ":"Marcar como hecha: ")+esc(t.title)+'"></label>'+taskLine(t)+'</div>';
+}
 function taskLine(t){
   var a=cuentaDe(t);
   return '<button class="item" data-act="open" data-id="'+t.id+'"><span class="t">'+esc(t.title)+'</span><span class="row">'+stPill(t)+'</span><span class="meta">'+(a.id?accDot(a):"")+esc(dondeTarea(t))+' · '+fdate(t.date)+(t.fmt?' · '+esc(t.fmt):"")+riskPill(t)+prioPill(t)+(t.assignees.length?' '+avs(t.assignees):"")+'</span></button>';
@@ -850,7 +859,7 @@ function vDia(){
   var u=me(),mine=openTasks(S.tasks).filter(function(t){return t.assignees.indexOf(u.id)>-1}).sort(byDate);
   var lt=mine.filter(function(t){return dayDiff(t.date)<0}),hoy=mine.filter(function(t){return dayDiff(t.date)===0}),sem=mine.filter(function(t){var d=dayDiff(t.date);return d>0&&d<=7}),des=mine.filter(function(t){return dayDiff(t.date)>7});
   var h='<div class="head"><div><h2>Hola, '+esc(u.name)+'</h2><div class="muted">'+esc(cap(new Date().toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long"})))+' · '+esc(rolNombre(u.role))+'</div></div><div class="actions"><button class="btn primary" data-act="newtask">+ Nueva tarea</button></div></div>';
-  if(!S.seen[u.id])h+='<div class="panel welcome"><h3 style="font-size:18px">Así se usa, en 3 pasos</h3><ol><li><b>Aquí ves tu día.</b> Lo que te toca hacer aparece abajo, ordenado por fecha.</li><li><b>Cambia el estado con un toque</b> sobre la etiqueta de color (por ejemplo, de «Redacción» a «Diseño»). La plataforma avisa sola a quien sigue.</li><li><b>Para avisar a alguien,</b> abre la tarea y escribe @ y su nombre.</li></ol><div class="actions"><button class="btn primary" data-act="seen">Entendido</button><button class="btn" data-act="nav" data-v="guia">Ver la guía</button></div></div>';
+  if(!S.seen[u.id])h+='<div class="panel welcome"><h3 style="font-size:18px">Así se usa, en 3 pasos</h3><ol><li><b>Aquí ves tu día.</b> Lo que te toca hacer aparece abajo, ordenado por fecha.</li><li><b>Marca la casilla cuando termines</b> una tarea o una actividad, o cambia su etapa con un toque sobre la etiqueta de color. La plataforma avisa sola a quien sigue.</li><li><b>Para avisar a alguien,</b> abre la tarea y escribe @ y su nombre.</li></ol><div class="actions"><button class="btn primary" data-act="seen">Entendido</button><button class="btn" data-act="nav" data-v="guia">Ver la guía</button></div></div>';
   h+=gruposEntregas();
   // Lo tuyo y lo de todo el equipo en un mismo lugar: actividades del equipo (con su reunión) y avisos sin leer
   // (menciones a ti, @todos, asignaciones y aprobaciones).
@@ -863,7 +872,7 @@ function vDia(){
   var any=false;
   [["Atrasadas",lt],["Hoy",hoy],["Esta semana",sem],["Más adelante",des]].forEach(function(g){
     if(!g[1].length)return;any=true;
-    h+='<div class="group"><h3>'+g[0]+' <span class="muted small tnum">'+g[1].length+'</span></h3><div class="list">'+g[1].map(taskLine).join("")+'</div></div>';
+    h+='<div class="group"><h3>'+g[0]+' <span class="muted small tnum">'+g[1].length+'</span></h3><div class="list">'+g[1].map(taskLineCheck).join("")+'</div></div>';
   });
   if(!any)h+='<div class="empty">No tienes tareas abiertas asignadas. Revisa las cuentas en «Cuentas» o crea una nueva.</div>';
   return h;
@@ -922,7 +931,7 @@ function agMine(x){return S.agWho==="todos"||x.owner===S.session||esEquipo(x)}
 function agTasks(ds){return openTasks(S.tasks).filter(function(t){return t.date===ds&&(S.agWho==="todos"||t.assignees.indexOf(S.session)>-1)})}
 function agRow(x){
   var o=esEquipo(x)?{name:"Todo el equipo"}:user(x.owner)||{name:x.owner},a=x.acc?acc(x.acc):null;
-  return '<div class="row ag-row">'+(x.kind==="tarea"?'<input type="checkbox" id="ck-'+x.id+'" data-act="toggleag" data-id="'+x.id+'"'+(x.done?" checked":"")+' aria-label="Marcar como hecha">':'<span class="dot" style="background:var(--s-dis);margin-top:6px"></span>')+
+  return '<div class="row ag-row">'+(x.kind==="tarea"?'<input type="checkbox" id="ck-'+x.id+'" data-act="toggleag" data-id="'+x.id+'"'+(x.done?" checked":"")+' aria-label="Marcar como hecha">':'<input type="checkbox" data-act="agrealizada" data-id="'+x.id+'"'+(x.done?" checked":"")+' aria-label="Ya se realizó" title="Ya se realizó">')+
   '<button class="ag-t" data-act="openag" data-id="'+x.id+'"><span class="'+(x.done?"done":"")+'" style="font-weight:600">'+esc(x.title)+'</span><span class="muted small">'+(x.time?esc(x.time)+" · ":"")+fdate(x.date)+" · "+esc(o.name)+(a?" · "+esc(a.name):"")+(x.kind==="tarea"&&!x.done&&x.date<iso(0)?' · <b style="color:var(--bad)">Vencida</b>':"")+'</span></button>'+entrarBtn(x)+'</div>';
 }
 function vAgenda(){
@@ -1134,7 +1143,7 @@ function agModal(m){
   '<div class="two"><div class="field"><label for="ag-date">Fecha</label><input id="ag-date" type="date" required value="'+d+'"'+dis+'></div><div class="field"><label for="ag-time">Hora (opcional)</label><input id="ag-time" type="time" value="'+esc(x?x.time:"")+'"'+dis+'></div></div>'+
   '<div class="field"><label for="ag-acc">Cuenta (opcional)</label><select id="ag-acc"'+dis+'><option value="">Sin cuenta</option>'+S.accounts.map(function(a){return '<option value="'+a.id+'"'+(x&&x.acc===a.id?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div>'+
   '<div class="field"><label for="ag-link">Enlace de la reunión (Google Meet u otro, opcional)</label><input id="ag-link" type="text" inputmode="url" autocapitalize="none" spellcheck="false" placeholder="meet.google.com/abc-defg-hij" value="'+esc(x&&x.link||"")+'"'+dis+'></div>'+
-  '<div class="field"><label for="ag-notes">Notas</label><textarea id="ag-notes" style="min-height:70px"'+dis+'>'+esc(x?x.notes:"")+'</textarea>'+enlacesHtml(x&&x.notes)+'</div>'+(x&&entrarBtn(x)?'<div>'+entrarBtn(x)+'</div>':"")+
+  (x&&x.kind!=="tarea"?realizadaChk(x):"")+'<div class="field"><label for="ag-notes">Notas</label><textarea id="ag-notes" style="min-height:70px"'+dis+'>'+esc(x?x.notes:"")+'</textarea>'+enlacesHtml(x&&x.notes)+'</div>'+(x&&entrarBtn(x)?'<div>'+entrarBtn(x)+'</div>':"")+
   (can?'<div class="actions"><button class="btn primary" type="submit">Guardar</button>'+(x&&full?'<button class="btn danger" type="button" data-act="delag" data-id="'+x.id+'">'+(S.armed==="delag"+x.id?seguro("eliminar esta actividad"):"Eliminar")+'</button>':"")+'</div>'+(full?"":'<div class="muted small">Cualquiera del equipo puede editarla. Eliminarla o cambiar para quién es lo hace quien la creó o Dirección.</div>'):'<div class="muted small">Solo el responsable o Dirección pueden editar esto.</div>')+'</form>';
 }
 var KC={blue:"Azul",purple:"Morado",red:"Rojo",orange:"Naranja",green:"Verde"};
@@ -1358,9 +1367,9 @@ function vTareas(){
   if(!abiertas.length)h+='<div class="empty">'+(f==="mias"?"No tienes tareas pendientes. Cuando alguien te asigne una, aparece aquí.":f==="asigne"?"No tienes tareas asignadas a otras personas pendientes.":"No hay tareas pendientes en el equipo.")+'</div>';
   grupos.forEach(function(g){
     var ts=abiertas.filter(function(t){return g[1](dayDiff(t.date))});
-    if(ts.length)h+='<div class="group"><h3 class="'+(g[0]==="Atrasadas"?"bad":"muted")+' small">'+g[0]+' · '+ts.length+'</h3><div class="list">'+ts.map(taskLine).join("")+'</div></div>';
+    if(ts.length)h+='<div class="group"><h3 class="'+(g[0]==="Atrasadas"?"bad":"muted")+' small">'+g[0]+' · '+ts.length+'</h3><div class="list">'+ts.map(taskLineCheck).join("")+'</div></div>';
   });
-  if(hechas.length)h+='<div class="group"><button class="btn small ghost" data-act="thechas" style="align-self:flex-start">'+(S.tfHechas?"Ocultar":"Ver")+' hechas ('+hechas.length+')</button>'+(S.tfHechas?'<div class="list">'+hechas.slice(0,60).map(taskLine).join("")+'</div>':"")+'</div>';
+  if(hechas.length)h+='<div class="group"><button class="btn small ghost" data-act="thechas" style="align-self:flex-start">'+(S.tfHechas?"Ocultar":"Ver")+' hechas ('+hechas.length+')</button>'+(S.tfHechas?'<div class="list">'+hechas.slice(0,60).map(taskLineCheck).join("")+'</div>':"")+'</div>';
   return h;
 }
 function vGuia(){
@@ -1379,7 +1388,7 @@ function vGuia(){
   '<h3>Crear una tarea</h3><p>Toda tarea lleva tres cosas obligatorias: <b>a quién se le asigna</b> (a ti o a otra persona), <b>qué tiene que hacer</b> y <b>para cuándo</b> (fecha de entrega). Si escribes una tarea rápida en una lista, se abre el formulario para completarla. Puedes adjuntar archivos al crearla (PDF, presentaciones, documentos) o después, dentro de la tarea, en «Archivos y entregas».</p>'+
   '<h3>Dentro de una tarea</h3><p>Las tareas de redes tienen un campo «Copy» para el texto final de la publicación, con botón para copiarlo. Junto a «Pasar a…» está «Regresar», que pide el motivo y avisa a quien la recibe. Subtareas con casilla, entregas y archivos de Drive, actualizaciones e historial de cambios. Al completar todas las subtareas, una automatización puede pasar la tarea a la siguiente etapa.</p>'+
   '<h3>Mencionar y reasignar</h3><p>En las actualizaciones de una tarea escribe @ y elige a la persona: le llega un aviso a su Bandeja y a su Mi día. @todos avisa a todo el equipo. Si una tarea no te toca, ábrela y usa «No es para mí» o «Reasignar»: le llega el aviso a quien la recibe y queda en la actividad del equipo.</p>'+
-  '<h3>Actividades del equipo y reuniones</h3><p>En Mi día, «+ Actividad para el equipo» agenda algo para todas las personas (por ejemplo, una reunión). Pega el enlace de Google Meet y aparece el botón «Entrar a la reunión» en Mi día, en el Área general y en la Agenda. Para cambiar la hora o el enlace, abre la actividad y guarda. Si Dirección conectó Google Calendar, cada persona recibe la invitación por correo y le queda en su calendario; se actualiza o se cancela sola.</p>'+
+  '<h3>Actividades del equipo y reuniones</h3><p>En Mi día, «+ Actividad para el equipo» agenda algo para todas las personas (por ejemplo, una reunión). Pega el enlace de Google Meet y aparece el botón «Entrar a la reunión» en Mi día, en el Área general y en la Agenda. Para cambiar la hora o el enlace, abre la actividad y guarda. Cuando ya se haya hecho, marca «Ya se realizó»: queda tachada y el lunes a las 0:00 pasa al historial. Si Dirección conectó Google Calendar, cada persona recibe la invitación por correo y le queda en su calendario; se actualiza o se cancela sola.</p>'+
   '<h3>Entregas</h3><p>Aquí se sube todo lo que se entrega: video, imágenes, PDF, documentos y archivos de diseño, de hasta 4 GB cada uno. Se ordena por cuenta y luego por lista. Arrastra los archivos a la pantalla o usa «Subir»; si se corta el internet, «Reintentar» sigue donde se quedó. Para corregir algo, abre la entrega y sube una versión nueva: las anteriores se conservan. Borrar manda a la papelera; borrar para siempre lo hace Dirección o quien creó la entrega, y pide confirmación.</p>'+
   '<h3>Aprobación de entregas</h3><p>Quien tiene «Aprueba entregas» en Equipo recibe un aviso cuando llega una entrega o una versión nueva. Abre la entrega, revísala y elige «Aprobar» o «Pedir cambios» (con comentario). Los cambios regresan la entrega a quien la subió, con aviso en su Bandeja. Cuántas aprobaciones hacen falta se configura en Ajustes.</p>'+
   ''+
@@ -2259,8 +2268,9 @@ function esEquipo(x){return !!x&&x.owner==="todos"}
 function puedeTodoAg(x,u){return !x||u.role==="admin"||x.owner===u.id||(esEquipo(x)&&x.by===u.id)}
 function entrarBtn(x){return x.link&&urlValida(x.link)?'<a class="btn small primary" href="'+esc(x.link)+'" target="_blank" rel="noopener">Entrar a la reunión</a>':""}
 function cuandoTexto(x){var d=dayDiff(x.date);return(d===0?"Hoy":d===1?"Mañana":fdate(x.date))+(x.time?" · "+x.time:"")}
-function proxEquipo(dias){var hoy=iso(0),fin=iso(dias||7);return S.agenda.filter(function(x){return esEquipo(x)&&!x.done&&x.date>=hoy&&x.date<=fin}).sort(function(a,b){return(a.date+(a.time||"99"))<(b.date+(b.time||"99"))?-1:1})}
-function equipoRow(x){return '<div class="item eqrow"><button class="btn ghost t" data-act="openag" data-id="'+x.id+'">'+esc(x.title)+'</button><span class="actions">'+entrarBtn(x)+'</span><span class="meta"><b>'+esc(cuandoTexto(x))+'</b>'+(x.notes?' · '+esc(x.notes.slice(0,120)):"")+'</span></div>'}
+function proxEquipo(dias){var hoy=iso(0),fin=iso(dias||7);return S.agenda.filter(function(x){return esEquipo(x)&&!x.archivada&&(x.done||(x.date>=hoy&&x.date<=fin))}).sort(function(a,b){return(a.done?1:0)-(b.done?1:0)||((a.date+(a.time||"99"))<(b.date+(b.time||"99"))?-1:1)})}
+function realizadaChk(x){return '<label class="chk small rchk"><input type="checkbox" data-act="agrealizada" data-id="'+x.id+'"'+(x.done?" checked":"")+'> '+(x.done?"Realizada"+(x.doneBy?" · la marcó "+esc(uname(x.doneBy)):""):"Ya se realizó")+'</label>'}
+function equipoRow(x){return '<div class="item eqrow'+(x.done?" hecha":"")+'"><button class="btn ghost t" data-act="openag" data-id="'+x.id+'">'+esc(x.title)+'</button><span class="actions">'+(x.done?"":entrarBtn(x))+realizadaChk(x)+'</span><span class="meta"><b>'+esc(cuandoTexto(x))+'</b>'+(x.notes?' · '+esc(x.notes.slice(0,120)):"")+'</span></div>'}
 function panelEquipo(){
   var ev=proxEquipo(7);
   return ev.length?'<div class="group"><h3>Actividades del equipo <span class="muted small tnum">'+ev.length+'</span></h3><div class="list">'+ev.map(equipoRow).join("")+'</div></div>':"";
@@ -2333,6 +2343,7 @@ function taskModal(t){
   var h='<div class="row" style="justify-content:space-between;align-items:flex-start"><div style="min-width:0"><div class="muted small">'+(gen?'Tarea general'+(a.id?' · '+accDot(a)+' '+esc(a.name):""):accDot(a)+' '+esc(a.name)+' · '+esc(listaNombre(L))+' · '+TYPES[t.type])+'</div></div><button class="btn" data-act="close">Cerrar</button></div>';
   h+='<div class="field"><label for="e-title" class="sr">Título</label><input id="e-title" class="bigtitle" data-f="tf" data-k="title" data-id="'+t.id+'" value="'+esc(t.title)+'"'+dis+'></div>';
   if(!t.assignees.length)h+='<div class="banner" role="alert">Esta tarea no tiene a nadie asignado. Elige a la persona en «Personas».</div>';
+  h+='<label class="chk hecho-chk"><input type="checkbox" data-act="tdone" data-id="'+t.id+'"'+(isFinal(t)?" checked":"")+dis+'> <b>'+(isFinal(t)?"Hecha":"Ya se realizó")+'</b> <span class="muted small">'+(isFinal(t)?"(desmarca para regresarla a la etapa anterior)":"(la pasa a «"+esc(st.filter(function(x){return x.final}).concat(st.slice(-1))[0].n)+"»)")+'</span></label>';
   h+='<div class="stepper">'+st.map(function(s,j){return '<div class="step '+(j<i?"done":j===i?"now":"")+'">'+esc(s.n)+'</div>'}).join("")+'</div>';
   h+='<div class="props panel"><div class="prop"><span class="pl">Estado</span><span>'+stCell(t,"lista")+riskPill(t)+'</span></div><div class="prop"><span class="pl">Personas</span><span>'+whoCell(t)+'<span class="muted small">'+(t.assignees.length?esc(names(t.assignees)):"Sin asignar")+'</span>'+(ed?'<button class="btn small" data-act="reasignar" data-id="'+t.id+'">Reasignar</button>'+(t.assignees.indexOf(S.session)>-1?'<button class="btn small ghost" data-act="reasignar" data-id="'+t.id+'" data-mia="1">No es para mí</button>':""):"")+'</span></div><div class="prop"><span class="pl">Para cuándo</span><span>'+dateCell(t)+'</span></div><div class="prop"><span class="pl">Prioridad</span><span>'+prCell(t,"lista")+'</span></div>'+
    (gen?'<div class="prop"><span class="pl">Cuenta</span><span><select id="e-acc" data-f="tf" data-k="acc" data-id="'+t.id+'"'+dis+'><option value="">Sin cuenta</option>'+S.accounts.slice().sort(function(x,y){return String(x.name).localeCompare(String(y.name),"es")}).map(function(c){return '<option value="'+c.id+'"'+(c.id===t.acc?" selected":"")+'>'+esc(c.name)+'</option>'}).join("")+'</select></span></div>':'<div class="prop"><span class="pl">Formato</span><span><select id="e-fmt" data-f="tf" data-k="fmt" data-id="'+t.id+'"'+dis+'>'+FORMATS[t.type].map(function(f){return '<option'+(f===t.fmt?" selected":"")+'>'+f+'</option>'}).join("")+'</select></span></div>')+'<div class="prop"><span class="pl">Etiquetas</span><span><input id="e-tags" data-f="tf" data-k="tags" data-id="'+t.id+'" value="'+esc(t.tags.join(", "))+'" placeholder="campaña, reel"'+dis+'></span></div></div>';
@@ -2578,6 +2589,18 @@ function act(a,el){
     if(!arm("delref"+id))return;RB[rg]=RB[rg].filter(function(z){return z.id!==id});save();return toast("Quitado del tablero de marca");
   case"newag":S.modal={kind:"ag",id:null,k:el.getAttribute("data-k"),para:el.getAttribute("data-para")||""};return render();
   case"openag":S.modal={kind:"ag",id:id};return render();
+  case"tdone":
+    var td=taskById(id);if(!td)return;
+    if(!canEdit(td)){deny();return render()}
+    var etapas=sts(td),fin=etapas.filter(function(x){return x.final})[0]||etapas[etapas.length-1];
+    if(!isFinal(td)){setStatus(td,fin.k);save();toast("«"+td.title+"» quedó hecha")}
+    else{var antes=etapas.filter(function(x){return !x.final});if(antes.length){setStatus(td,antes[antes.length-1].k,"se desmarcó como hecha");save();toast("«"+td.title+"» volvió a «"+sDef(td).n+"»")}}
+    return render();
+  case"agrealizada":
+    var ar=S.agenda.find(function(z){return z.id===id});if(!ar)return;
+    if(!(esEquipo(ar)||puedeTodoAg(ar,me())))return deny();
+    if(ar.done){ar.done=false;delete ar.doneAt;delete ar.doneBy}else{ar.done=true;ar.doneAt=nowIso();ar.doneBy=S.session}
+    save();toast(ar.done?"«"+ar.title+"» quedó como realizada":"«"+ar.title+"» ya no está marcada como realizada");return render();
   case"toggleag":var tx2=S.agenda.find(function(z){return z.id===id});if(tx2){tx2.done=!tx2.done;save()}return render();
   case"delag":if(!puedeTodoAg(S.agenda.find(function(z){return z.id===id}),me()))return deny();if(!arm("delag"+id))return;S.agenda=S.agenda.filter(function(z){return z.id!==id});S.modal=null;save();return toast("Eliminado");
   case"kmine":S.kf.mine=!S.kf.mine;return render();
