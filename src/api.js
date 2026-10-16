@@ -146,6 +146,8 @@ export function permiso(usuario, c) {
 // menos una persona de Dirección activa; si no, nadie podría administrar el Hub.
 export async function motivoNoCambiarEquipo(env, c, usuario) {
 	if (c.datos && c.datos.baja && c.id === usuario.id) return 'No puedes darte de baja a ti mismo';
+	// Nadie se quita su propio nivel de Administración (evita perder el acceso por un clic): lo hace la otra persona.
+	if (c.id === usuario.id && esAdministracion(usuario) && (!c.datos || c.datos.nivel !== 'administracion')) return 'No puedes quitarte tu propio nivel de Administración; pídeselo a otra persona de Administración';
 	const despues = (await usuarios(env)).filter((u) => u.id !== c.id);
 	if (c.datos) despues.push({ ...c.datos, id: c.id });
 	if (!despues.some((u) => u.nivel === 'administracion' && !u.baja)) return 'Debe quedar al menos una persona de Administración activa';
