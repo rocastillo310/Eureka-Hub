@@ -118,6 +118,36 @@ Se suben desde la vista **Entregas** (o arrastrando archivos a cualquier pantall
 
 Ajustes → **Apariencia**: claro, oscuro o «como el sistema». Se guarda por persona y se aplica antes de pintar la pantalla.
 
+## Invitaciones de Google Calendar
+
+Cuando una actividad de la Agenda es **«Para todo el equipo»** y tiene **enlace de reunión** (Google Meet u otro), el Worker crea el evento en el Google Calendar de la cuenta que conectó Dirección e invita a cada persona activa del equipo. **Google les manda el correo de invitación** y les queda en su calendario con recordatorio. Cambiar fecha, hora, título o enlace actualiza la invitación; borrar la actividad o quitarle el enlace la cancela. Editar solo las notas no vuelve a mandar correos. Quien está dado de baja no recibe invitaciones.
+
+- Código: `src/calendario.js`. Zona horaria: Guadalajara; duración: 1 hora (sin hora, evento de todo el día).
+- La llave para usar el calendario la guarda el Worker en `meta` al conectar; las claves `google…` nunca entran al respaldo.
+- Sin costo: usa la API de Google Calendar con la cuenta de Google de Dirección.
+
+### Configurar (una vez, lo hace Dirección)
+
+1. <https://console.cloud.google.com> → crea un proyecto (p. ej., «Eureka Hub»).
+2. APIs y servicios → Biblioteca → **Google Calendar API** → Habilitar.
+3. **Google Auth Platform** (pantalla de consentimiento) → Comenzar: nombre «Eureka Hub», tu correo de soporte, público **Externo**, correo de contacto → Crear.
+4. **Acceso a los datos** → Agregar permisos → `.../auth/calendar.events` → Guardar.
+5. **Público** → **Publicar app** (queda «En producción»). Si se queda en «Prueba», Google retira el permiso a los 7 días.
+6. **Clientes** → Crear cliente → **Aplicación web** → en «URI de redireccionamiento autorizados» pon `https://eureka-hub.<subdominio>.workers.dev/api/google/callback` → Crear. Copia el ID y el secreto del cliente (no los pegues en el chat ni en el repo).
+7. Guárdalos como secretos del Worker:
+
+```bash
+npx wrangler secret put GOOGLE_CLIENT_ID
+```
+
+```bash
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+8. En el Hub: Ajustes → «Invitaciones de Google Calendar» → **Conectar Google Calendar** → elige la cuenta desde la que saldrán las invitaciones. Google avisa «Google no verificó esta app» (es normal en una app interna): Configuración avanzada → Ir a Eureka Hub → permite ver y editar eventos → Continuar. Al volver, se mandan solas las invitaciones de las reuniones del equipo que aún no pasan.
+
+Si Google retira el permiso (cambias la contraseña, lo quitas en tu cuenta de Google), Ajustes muestra el error: vuelve a dar «Conectar Google Calendar».
+
 ## Respaldo y restauración (F5)
 
 Cada día a las **3:00 a. m. (Guadalajara)** el Worker guarda en el repo **privado** `rocastillo310/eureka-hub-backups`, en un solo commit:
@@ -213,6 +243,7 @@ Equipo → en su fila, «Dar de baja» → toca de nuevo para confirmar.
 | Access no deja entrar a alguien, o dice «Ese correo no está dado de alta» | Su correo no está en la política de Access o no está en **Equipo** (tienen que ser el mismo). | Revisa los dos; corrige el correo en el que falte. |
 | Aviso «Cloudflare Access no se actualizó» | El token `CF_API_TOKEN` venció o perdió el permiso *Access: Policies Write*. | Agrega el correo a mano (arriba), renueva el token en el dashboard y guárdalo: `npx wrangler secret put CF_API_TOKEN`. |
 | Aviso en la Bandeja «El respaldo diario falló: …» | Venció el token de GitHub, cambió el repo o dejó de ser privado (el Worker aborta antes de mandar datos). | Ajustes → «Respaldo de la base» dice el motivo. Renueva el token ([Conectar GitHub](#conectar-github-una-vez-lo-hace-dirección)) y da «Respaldar ahora». |
+| No llegan las invitaciones de una reunión | Google Calendar no está conectado o Google retiró el permiso. | Ajustes → «Invitaciones de Google Calendar» dice el motivo; da «Conectar Google Calendar». Solo invita a actividades «Para todo el equipo» con enlace. |
 | Una subida se detiene | Se cortó la conexión a medio archivo. | «Reintentar» manda solo las partes que faltan. Más de 4 GB no se acepta. |
 | Aviso de almacenamiento al 80 % | Las entregas se acercan a los 10 GB gratis de R2. | Vacía la papelera de Entregas o decide si se paga el excedente. |
 
@@ -276,7 +307,7 @@ npm run deploy
 ## Estructura
 
 ```
-src/            Worker: index.js (entrada y cron), api.js (rutas), entregas.js (archivos en R2), respaldo.js y formato-respaldo.js (F5), limpieza.js, contactos.js, entidades.js, merge3.js, access.js, access-politica.js
+src/            Worker: index.js (entrada y cron), api.js (rutas), entregas.js (archivos en R2), respaldo.js y formato-respaldo.js (F5), calendario.js (invitaciones de Google), limpieza.js, contactos.js, entidades.js, merge3.js, access.js, access-politica.js
 public/         la app (prototipo sin datos de ejemplo, en modo servidor)
 migrations/     migraciones de D1
 seed/           base.json (configuración inicial); equipo.local.json fuera de git
