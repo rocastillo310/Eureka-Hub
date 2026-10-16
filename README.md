@@ -128,7 +128,7 @@ Tres niveles:
 | **Dirección** | rol `admin` sin nivel (hoy, Jessy) | Cuentas, listas, tareas, entregas, automatizaciones, estados y columnas de la pizarra. |
 | **Equipo** | los demás | Su trabajo, como hasta ahora. |
 
-- El panel vive en **`/admin`** (la misma app). Cloudflare Access lo protege con **otra aplicación y otra política** que solo permite los correos de Administración, así que vuelve a pedir correo y código. Además, el servidor revisa el nivel en cada cambio (`src/api.js`: `SOLO_ADMINISTRACION`, `esAdministracion`).
+- El panel vive en **`/admin`** (la misma app); se entra desde Ajustes → «Abrir panel de administración». Cloudflare Access lo protege con **otra aplicación y otra política** que solo permite los correos de Administración, así que vuelve a pedir correo y código. Además, el servidor revisa el nivel en cada cambio (`src/api.js`: `SOLO_ADMINISTRACION`, `esAdministracion`).
 - Siempre queda al menos una persona de Administración activa y nadie se da de baja a sí mismo.
 - Al cambiar el nivel de alguien, el Worker actualiza también la política del panel (secreto `ACCESS_POLITICA_ADMIN_ID`).
 - **Historial:** tabla `bitacora` (migración `0003`), solo se añade; lo leen Administración en `/api/admin/bitacora`. No se sincroniza a las pantallas del resto.

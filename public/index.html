@@ -63,7 +63,6 @@ button{cursor:pointer}
 .brand{font-family:var(--font-display);font-weight:700;font-size:19px;display:flex;gap:8px;align-items:center}
 .brand i{width:12px;height:12px;border-radius:3px;background:var(--accent);display:inline-block}
 .nav{display:flex;flex-direction:column;gap:2px}
-.navadm{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;font-weight:600;color:var(--accent);text-decoration:none;border:1px solid var(--accent-soft)}.navadm:hover{background:var(--accent-soft)}
 .nav button{border:0;background:transparent;text-align:left;padding:9px 10px;border-radius:8px;font-weight:600;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px}
 .nav button:hover{background:var(--surface2)}
 .nav button.on{background:var(--accent-soft);color:var(--accent)}
@@ -180,7 +179,6 @@ input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);margin-to
   .side{position:fixed;bottom:0;left:0;right:0;top:auto;height:auto;flex-direction:row;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));border-right:0;border-top:1px solid var(--line);z-index:15;gap:0;overflow:visible}
   .side .brand,.side .me .who{display:none}.side .me{margin:0;border:0;padding:0;flex:none}
   .nav{flex-direction:row;flex:1;overflow-x:auto}.nav button{flex:1 0 auto;flex-direction:column;font-size:12px;padding:6px 8px;gap:2px;text-align:center}
-  .navadm{flex:1 0 auto;flex-direction:column;font-size:12px;padding:6px 8px;gap:2px;text-align:center;border:0;justify-content:center}
   main{padding-bottom:90px}.two{grid-template-columns:1fr}.head h2{font-size:24px}
 }
 @media (prefers-reduced-motion:no-preference){.drawer{animation:in .18s ease-out}@keyframes in{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}}
@@ -575,6 +573,9 @@ function isAdmin(){return me().role==="admin"}
 // Administración (Rodrigo y Dani): por encima de Dirección. Equipo, permisos, reglas, integraciones y cuentas a eliminar.
 function esAdm(u){u=u||me();return !!u&&u.nivel==="administracion"&&!u.baja}
 function enAdmin(){return /^\/admin(\/|$)/.test(location.pathname)}
+// En el panel, la API va por /admin/api: la cubre la misma aplicación de Access que el panel, así no depende de
+// la sesión del resto del Hub (Cloudflare maneja una sesión por aplicación).
+function apiBase(){return enAdmin()?"/admin/api/":"/api/"}
 function canEdit(t){var u=me();return u.role==="admin"||t.assignees.indexOf(u.id)>-1||t.createdBy===u.id||!t.assignees.length}
 function deny(){toast("Solo las personas asignadas o Dirección pueden cambiar esto")}
 function prioPill(t){var p=prioDef(t.priority);return p?'<span class="pr lb-'+p.c+'">'+ic("flag")+esc(p.n)+'</span>':""}
@@ -800,7 +801,6 @@ function tree(){
 function shell(){
   var u=me(),h='<div class="shell"><aside class="side"><div class="brand"><i></i> Eureka Hub</div><nav class="nav" aria-label="Principal">'+
   navBtn("general","Área general","pulse")+navBtn("dia","Mi día","home")+navBtn("entregas","Entregas","upload")+navBtn("bandeja","Bandeja","inbox",unread())+navBtn("agenda","Agenda","calendar")+navBtn("panel","Panel","panel")+
-  (esAdm(u)?'<a class="navadm" href="/admin" title="Panel de administración">'+ic("shield")+'<span>Administración</span></a>':"")+
   '<div class="navlbl">Espacios</div>'+navBtn("spaces","Cuentas","folder")+tree()+navBtn("contactos","Contactos","contact")+
   '<div class="navlbl">Herramientas</div>'+navBtn("cals","Calendarios","check",pendCals()||"","sec")+navBtn("auto","Automatizaciones","bolt",0,"sec")+navBtn("pizarra","Pizarra Kanban","note",0,"sec")+navBtn("drive","Drive","drive",0,"sec")+navBtn("equipo","Equipo","users",0,"sec")+navBtn("ajustes","Ajustes","sliders",0,"sec")+navBtn("guia","Guía","book",0,"sec")+
   '<button data-act="menu" class="moreNav'+(SEC.indexOf(S.view)>-1?" on":"")+'"><span class="row" style="gap:8px">'+ic("grid")+'<span>Más</span></span></button>'+
@@ -1362,7 +1362,7 @@ function vGuia(){
   '<h3>Alertas</h3><ul><li><b>En riesgo:</b> faltan 2 días o menos y la tarea aún no está en una etapa final o programada.</li><li><b>Atrasada:</b> pasó la fecha y no está terminada.</li></ul>'+
   ''+
   '<h3>Quién puede cambiar qué</h3><p>Hay tres niveles. <b>Administración</b> (Rodrigo y Dani) controla equipo, permisos, reglas e integraciones desde el Panel de administración. <b>Dirección</b> edita cuentas, tareas, entregas y automatizaciones. El resto puede cambiar las tareas que tiene asignadas, las que creó o las que no tienen responsable. Cualquiera puede comentar. Para regresar una tarea de etapa hay que escribir el motivo. Las acciones que borran piden un segundo toque para confirmar.</p>'+
-  '<h3>Panel de administración</h3><p>Solo para Administración: entra con «Administración» en el menú (o en la dirección del Hub terminada en /admin); Cloudflare vuelve a pedir tu correo y el código. Ahí se agregan personas, se dan de baja o se reactivan, se cambia su nivel, su rol y quién aprueba entregas; se deciden las reglas de aprobación; se conectan Google Calendar y se revisa el almacenamiento. Cada cambio queda en «Historial». El respaldo de la base solo lo ve Rodrigo.</p>'+
+  '<h3>Panel de administración</h3><p>Solo para Administración: entra desde Ajustes → «Abrir panel de administración» (o con la dirección del Hub terminada en /admin); Cloudflare vuelve a pedir tu correo y el código. Ahí se agregan personas, se dan de baja o se reactivan, se cambia su nivel, su rol y quién aprueba entregas; se deciden las reglas de aprobación; se conectan Google Calendar y se revisa el almacenamiento. Cada cambio queda en «Historial». El respaldo de la base solo lo ve Rodrigo.</p>'+
   '<h3>Para que no se vea saturado</h3><p>Las listas muestran solo las columnas básicas; activa «Mostrar más columnas» si las necesitas. En la pizarra, «Solo lo mío» deja solo tus notas.</p>'+
   '<h3>Tema claro u oscuro</h3><p>En Ajustes → Apariencia eliges claro, oscuro o «como el sistema» (sigue el modo de tu computadora o teléfono). Se guarda para tu cuenta.</p>'+
   ''+
@@ -1477,7 +1477,7 @@ function entById(id){return S.entregas.find(function(e){return e.id===id})}
 function listaDe(e){return e.listaId?listById(e.listaId):null}
 function puedeBorrarEn(e){var u=me();return u.role==="admin"||e.creadoPor===u.id}
 // Con ?v= la dirección siempre apunta al mismo contenido, así el navegador puede guardarla en caché.
-function urlArchivo(e,v,descargar){return "/api/entregas/archivo?id="+encodeURIComponent(e.id)+"&v="+(v||e.version)+(descargar?"&descargar=1":"")+(SRV&&SRV.dev?"&devUser="+encodeURIComponent(S.session):"")}
+function urlArchivo(e,v,descargar){return apiBase()+"entregas/archivo?id="+encodeURIComponent(e.id)+"&v="+(v||e.version)+(descargar?"&descargar=1":"")+(SRV&&SRV.dev?"&devUser="+encodeURIComponent(S.session):"")}
 function enPill(e){var s=ESTADO_EN[e.estado]||ESTADO_EN.pendiente;return '<span class="pill '+s[1]+'">'+s[0]+'</span>'}
 function enOrden(a,b){return a.subidoEn<b.subidoEn?1:a.subidoEn>b.subidoEn?-1:0}
 function enTam(e){return(e.versiones||[]).reduce(function(s,v){return s+v.tamano},0)}
@@ -1636,7 +1636,7 @@ function enviarParte(j,n){
     var ini=(n-1)*j.parteBytes,x=new XMLHttpRequest();
     j.xhrs.push(x);
     function fin(){j.xhrs=j.xhrs.filter(function(z){return z!==x})}
-    x.open("PUT","/api/entregas/parte?subida="+encodeURIComponent(j.subida)+"&n="+n);
+    x.open("PUT",apiBase()+"entregas/parte?subida="+encodeURIComponent(j.subida)+"&n="+n);
     if(SRV&&SRV.dev){try{var u=sessionStorage.getItem(KEY+"-u");if(u)x.setRequestHeader("X-Dev-User",u)}catch(e){}}
     x.upload.onprogress=function(ev){j.prog[n]=ev.loaded;pintarSub()};
     x.onload=function(){
@@ -1744,7 +1744,8 @@ function vAjustes(){
   var h='<div class="head"><div><h2>Ajustes</h2><div class="muted">Configuración y uso de la plataforma</div></div></div>';
   h+=temaPanel();
   if(!SRV)return h+'<div class="empty">Los demás ajustes aparecen al usar la plataforma en línea.</div>';
-  if(esAdm())h+='<div class="banner">Reglas de aprobación, Google Calendar, respaldo y almacenamiento están en el <a href="/admin">Panel de administración</a>.</div>';
+  // Solo Administración ve la entrada al panel; Cloudflare vuelve a pedir el código al abrirlo.
+  if(esAdm())h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>'+ic("shield")+' Panel de administración</h3><p class="muted small" style="margin:0">Personas y permisos, reglas de aprobación, Google Calendar, respaldo, almacenamiento e historial de cambios. Solo para Administración; al abrirlo se vuelve a pedir tu correo y el código.</p><a class="btn primary" href="/admin" style="align-self:flex-start">Abrir panel de administración</a></div>';
   return h;
 }
 function almPanel(){
@@ -2865,7 +2866,7 @@ function cab(){
   return h;
 }
 function api(ruta,cuerpo){
-  return fetch("/api/"+ruta,{method:cuerpo===undefined?"GET":"POST",headers:cab(),body:cuerpo===undefined?undefined:JSON.stringify(cuerpo),cache:"no-store"}).then(function(r){
+  return fetch(apiBase()+ruta,{method:cuerpo===undefined?"GET":"POST",headers:cab(),body:cuerpo===undefined?undefined:JSON.stringify(cuerpo),cache:"no-store"}).then(function(r){
     return r.json().catch(function(){return{}}).then(function(j){
       if(!r.ok){var e=new Error(j.error||("Error "+r.status));e.estado=r.status;e.datos=j;throw e}
       return j;
@@ -3029,11 +3030,24 @@ function iniciar(){
   function local(){SRV=null;load();if(S.session)runDue();render()}
   if(location.protocol==="file:"||typeof fetch!=="function")return local();
   var app=document.getElementById("app");if(app)app.textContent="Cargando…";
-  fetch("/api/yo",{headers:(function(){var h={"content-type":"application/json"};try{var u=sessionStorage.getItem(KEY+"-u");if(u)h["X-Dev-User"]=u}catch(e){}return h})(),cache:"no-store"}) /* X-Dev-User solo cuenta en desarrollo (localhost) */.then(function(r){if(!r.ok)throw new Error("sin servidor");return r.json()}).then(function(y){
+  fetch(apiBase()+"yo",{redirect:"manual",headers:(function(){var h={"content-type":"application/json"};try{var u=sessionStorage.getItem(KEY+"-u");if(u)h["X-Dev-User"]=u}catch(e){}return h})(),cache:"no-store"}) /* X-Dev-User solo cuenta en desarrollo (localhost) */.then(function(r){if(!r.ok)throw new Error("sin servidor");return r.json()}).then(function(y){
     if(!y||typeof y.dev!=="boolean")throw new Error("no es el servidor");
+    try{sessionStorage.removeItem(KEY+"-recarga")}catch(e){}
     SRV={dev:y.dev,yo:y.yo||null,aviso:y.aviso||null,respaldo:!!y.respaldo,cursor:0};
     return cargarDelServidor().then(function(){cargarCfg();if(S.session)runDue();if(enAdmin())S.view="admin";volverDeGoogle();render()});
-  }).catch(function(e){if(SRV){if(app)app.textContent="No se pudo entrar: "+(e&&e.message||"error del servidor");return}local()});
+  }).catch(function(e){
+    if(SRV){if(app)app.textContent="No se pudo entrar: "+(e&&e.message||"error del servidor");return}
+    if(!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname))return sinSesion(app);
+    local();
+  });
+}
+// En producción el modo sin servidor (prototipo con usuario y contraseña) nunca aplica: si /api/yo no responde, casi
+// siempre es que venció la sesión de Cloudflare Access. Se recarga la página una vez (Access la renueva o pide el
+// código); si vuelve a fallar en menos de un minuto, se muestra un botón en vez de entrar en un ciclo.
+function sinSesion(app){
+  var k=KEY+"-recarga",t=0;try{t=+sessionStorage.getItem(k)||0}catch(e){}
+  if(Date.now()-t>60000){try{sessionStorage.setItem(k,String(Date.now()))}catch(e){}location.replace(location.pathname+location.search);return}
+  if(app)app.innerHTML='<div class="login"><div class="login-form" role="alert"><h2>No se pudo conectar</h2><p class="muted">Tu sesión venció o se cortó la conexión. Vuelve a entrar con tu correo y el código.</p><div class="actions"><button class="btn primary" type="button" onclick="location.href=\'/\'">Entrar de nuevo</button></div></div></div>';
 }
 /* Mezcla de cambios de tres vías. La usan el servidor (functions/_merge3.js, generado) y la pantalla (08-servidor).
    Solo declaraciones de funciones: build.py la incluye dentro de la IIFE de la pantalla y la exporta para el servidor.

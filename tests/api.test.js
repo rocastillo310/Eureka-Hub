@@ -7,7 +7,7 @@ import { llavesDePrueba, EQUIPO, AUD } from './jwt-prueba.js';
 import { _reiniciarCache } from '../src/access.js';
 import { correosDelEquipo } from '../src/access-politica.js';
 
-const { buscar, identidad } = await llavesDePrueba();
+const { buscar, identidad, firmar } = await llavesDePrueba();
 globalThis.fetch = buscar; // las llaves públicas de Access salen de aquí, no de la red
 
 const PROD = 'https://eureka-hub.cuenta.workers.dev';
@@ -295,4 +295,18 @@ test('el panel /admin se sirve con la misma app', async () => {
 	const env = await entorno();
 	const r = await worker.fetch(new Request(PROD + '/admin'), env);
 	assert.equal(await r.text(), 'estático');
+});
+
+test('la API del panel (/admin/api) solo acepta la sesión de la aplicación de Access del panel', async () => {
+	const env = { ...(await entorno()), ACCESS_AUD_ADMIN: 'aud-del-panel' };
+	const jwtPanel = await firmar({ iss: `https://${EQUIPO}.cloudflareaccess.com`, aud: ['aud-del-panel'], exp: Math.floor(Date.now() / 1000) + 600, nbf: Math.floor(Date.now() / 1000) - 10, email: ADMIN.email });
+	const pedirPanel = async (ruta, jwt) => worker.fetch(new Request(PROD + '/admin/api/' + ruta, { headers: { 'Cf-Access-Jwt-Assertion': jwt } }), env);
+	const r = await pedirPanel('yo', jwtPanel);
+	assert.equal((await r.json()).yo, ADMIN.id);
+	assert.equal((await pedirPanel('admin/bitacora', jwtPanel)).status, 200);
+	// La sesión del Hub (otra audiencia) no sirve para /admin/api, y la del panel no sirve para /api.
+	assert.equal((await (await pedirPanel('yo', await identidad(ADMIN.email))).json()).yo, null);
+	assert.equal((await pedir(env, 'yo', { como: ADMIN.email })).json.yo, ADMIN.id);
+	const sinConfig = await worker.fetch(new Request(PROD + '/admin/api/yo', { headers: { 'Cf-Access-Jwt-Assertion': jwtPanel } }), await entorno());
+	assert.equal((await sinConfig.json()).yo, null, 'sin ACCESS_AUD_ADMIN falla cerrado');
 });
