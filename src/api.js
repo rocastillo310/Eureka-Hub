@@ -8,6 +8,7 @@ import { aEntidad, escribir, ErrorVisible } from './entidades.js';
 import { manejarEntregas } from './entregas.js';
 import { prepararContacto } from './contactos.js';
 import { respaldar, estadoRespaldo } from './respaldo.js';
+import { configurado as googleConfigurado, estadoGoogle, urlConectar, completarConexion, desconectar, sincronizarActividad, sincronizarProximas } from './calendario.js';
 
 export const TIPOS = new Set(['user', 'account', 'list', 'task', 'cal', 'ag', 'auto', 'inbox', 'note', 'cols', 'stat', 'seen', 'pref', 'board', 'entrega', 'actividad', 'ajuste', 'contacto']);
 // Solo el rol admin escribe estos tipos (sección 5 del prompt).
@@ -162,8 +163,15 @@ async function estadoActual(env, tipo, id) {
 	return f ? aEntidad(f) : { tipo, id, datos: null, borrado: true };
 }
 
+// Trabajo que sigue después de responder (si no hay ctx, como en las pruebas, se espera).
+function enSegundoPlano(ctx, promesa) {
+	const p = promesa.catch((e) => console.error('segundo plano', e));
+	if (ctx && ctx.waitUntil) ctx.waitUntil(p);
+	return p;
+}
+
 // ---------- rutas ----------
-export async function manejarApi(request, env) {
+export async function manejarApi(request, env, ctx) {
 	const url = new URL(request.url);
 	const ruta = url.pathname.replace(/^\/api\/?/, '');
 	const metodo = request.method;
@@ -210,6 +218,7 @@ export async function manejarApi(request, env) {
 			for (const c of cambios) { const m = validarCambio(c); if (m) return error(400, m); }
 			const rechazados = [];
 			let cambioEquipo = false;
+			const actividades = [];
 			for (const c of cambios) {
 				const motivo = permiso(q.usuario, c);
 				if (motivo) { rechazados.push({ tipo: c.tipo, id: c.id, motivo }); continue; }
@@ -247,7 +256,10 @@ export async function manejarApi(request, env) {
 					continue;
 				}
 				if (c.tipo === 'user') cambioEquipo = true;
+				if (c.tipo === 'ag') actividades.push(c.id);
 			}
+			// Reuniones del equipo con enlace: invitación de Google Calendar (después de responder, sin hacer esperar).
+			if (actividades.length) enSegundoPlano(ctx, Promise.all(actividades.map((id) => sincronizarActividad(env, id))));
 			// Si cambió el equipo, la lista de correos de Cloudflare Access se pone igual a la de la base.
 			let aviso;
 			if (cambioEquipo) {
@@ -268,6 +280,22 @@ export async function manejarApi(request, env) {
 			if (q.usuario.role !== 'admin') return error(403, 'Solo Dirección');
 			if (ruta === 'respaldo/estado' && metodo === 'GET') return resp({ repo: (env.RESPALDO_REPO || '').trim() || null, configurado: !!(env.RESPALDO_REPO && env.GITHUB_TOKEN_RESPALDO), ultimo: await estadoRespaldo(env) });
 			if (ruta === 'respaldo/ahora' && metodo === 'POST') return resp(await respaldar(env, { origen: 'manual' }));
+		}
+
+		// Google Calendar: solo Dirección conecta o desconecta la cuenta que manda las invitaciones.
+		if (ruta.startsWith('google/')) {
+			if (!q.usuario) return error(401, q.motivo || 'No autenticado');
+			if (q.usuario.role !== 'admin') return error(403, 'Solo Dirección');
+			const origen = url.origin;
+			if (ruta === 'google/estado' && metodo === 'GET') return resp(await estadoGoogle(env));
+			if (!googleConfigurado(env)) return error(409, 'Falta configurar Google (secretos GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET)');
+			if (ruta === 'google/conectar' && metodo === 'GET') return Response.redirect(await urlConectar(env, origen), 302);
+			if (ruta === 'google/callback' && metodo === 'GET') {
+				const r = await completarConexion(env, origen, url.searchParams.get('code'), url.searchParams.get('state'));
+				if (r.ok) enSegundoPlano(ctx, sincronizarProximas(env));
+				return Response.redirect(`${origen}/?google=${r.ok ? 'ok' : 'error&motivo=' + encodeURIComponent(r.motivo)}`, 302);
+			}
+			if (ruta === 'google/desconectar' && metodo === 'POST') { await desconectar(env); return resp({ ok: true }); }
 		}
 
 		if (ruta.startsWith('entregas/')) {

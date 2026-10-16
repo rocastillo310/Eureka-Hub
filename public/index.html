@@ -1317,7 +1317,7 @@ function vGuia(){
   ''+
   '<h3>Dentro de una tarea</h3><p>Las tareas de redes tienen un campo «Copy» para el texto final de la publicación, con botón para copiarlo. Junto a «Pasar a…» está «Regresar», que pide el motivo y avisa a quien la recibe. Subtareas con casilla, entregas y archivos de Drive, actualizaciones e historial de cambios. Al completar todas las subtareas, una automatización puede pasar la tarea a la siguiente etapa.</p>'+
   '<h3>Mencionar y reasignar</h3><p>En las actualizaciones de una tarea escribe @ y elige a la persona: le llega un aviso a su Bandeja y a su Mi día. @todos avisa a todo el equipo. Si una tarea no te toca, ábrela y usa «No es para mí» o «Reasignar»: le llega el aviso a quien la recibe y queda en la actividad del equipo.</p>'+
-  '<h3>Actividades del equipo y reuniones</h3><p>En Mi día, «+ Actividad para el equipo» agenda algo para todas las personas (por ejemplo, una reunión). Pega el enlace de Google Meet y aparece el botón «Entrar a la reunión» en Mi día, en el Área general y en la Agenda. Para cambiar la hora o el enlace, abre la actividad y guarda.</p>'+
+  '<h3>Actividades del equipo y reuniones</h3><p>En Mi día, «+ Actividad para el equipo» agenda algo para todas las personas (por ejemplo, una reunión). Pega el enlace de Google Meet y aparece el botón «Entrar a la reunión» en Mi día, en el Área general y en la Agenda. Para cambiar la hora o el enlace, abre la actividad y guarda. Si Dirección conectó Google Calendar, cada persona recibe la invitación por correo y le queda en su calendario; se actualiza o se cancela sola.</p>'+
   '<h3>Entregas</h3><p>Aquí se sube todo lo que se entrega: video, imágenes, PDF, documentos y archivos de diseño, de hasta 4 GB cada uno. Se ordena por cuenta y luego por lista. Arrastra los archivos a la pantalla o usa «Subir»; si se corta el internet, «Reintentar» sigue donde se quedó. Para corregir algo, abre la entrega y sube una versión nueva: las anteriores se conservan. Borrar manda a la papelera; borrar para siempre lo hace Dirección o quien creó la entrega, y pide confirmación.</p>'+
   '<h3>Aprobación de entregas</h3><p>Quien tiene «Aprueba entregas» en Equipo recibe un aviso cuando llega una entrega o una versión nueva. Abre la entrega, revísala y elige «Aprobar» o «Pedir cambios» (con comentario). Los cambios regresan la entrega a quien la subió, con aviso en su Bandeja. Cuántas aprobaciones hacen falta se configura en Ajustes.</p>'+
   ''+
@@ -1714,6 +1714,7 @@ function vAjustes(){
   cargarCfg();
   h+=ajAprobPanel();
   h+=respPanel();
+  h+=googlePanel();
   var u=usoBytes(),pct=Math.min(100,u.total/GRATIS_BYTES*100),alto=pct>=80,porCuenta={};
   S.entregas.forEach(function(e){porCuenta[e.cuentaId]=(porCuenta[e.cuentaId]||0)+enTam(e)});
   h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Almacenamiento de entregas</h3><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:baseline"><span><b class="tnum" style="font-size:22px;font-family:var(--font-display)">'+fbytes(u.total)+'</b> <span class="muted">de 10 GB gratis</span></span><b class="tnum"'+(alto?' style="color:var(--bad)"':"")+'>'+(u.total&&pct<1?"menos de 1":Math.round(pct))+' %</b></div><span class="bar'+(alto?" alto":"")+'" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.round(pct)+'" aria-label="Almacenamiento usado"><i style="width:'+pct+'%"></i></span>'+
@@ -2102,6 +2103,25 @@ function crearSubcarpeta(){
   S.modal=null;S.view="space";S.spaceId=a.id;S.toTop=true;save();toast("Subcarpeta «"+n+"» creada con sus dos listas");
 }
 /* ---------- Respaldo (F5): estado y «Respaldar ahora» para Dirección ---------- */
+/* Invitaciones de Google Calendar: las actividades «Para todo el equipo» con enlace mandan invitación por correo. */
+var GCAL={cargado:false,cargando:false,datos:null,error:""};
+function cargarGcal(forzar){
+  if(!SRV||!isAdmin()||GCAL.cargando||(GCAL.cargado&&!forzar))return;
+  GCAL.cargando=true;
+  api("google/estado").then(function(r){GCAL.datos=r;GCAL.error="";GCAL.cargado=true;GCAL.cargando=false;if(S.view==="ajustes")render()}).catch(function(e){GCAL.error=(e&&e.message)||"No se pudo leer";GCAL.cargando=false;GCAL.cargado=true;if(S.view==="ajustes")render()});
+}
+function googlePanel(){
+  if(!SRV||!isAdmin())return "";
+  cargarGcal();
+  var d=GCAL.datos,u=d&&d.ultimo,h='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Invitaciones de Google Calendar</h3>'+(d&&d.conectado?'<span class="pill st-publicada">Conectado</span>':"")+'</div>';
+  if(!d)return h+'<div class="muted small">'+(GCAL.error?esc(GCAL.error):"Cargando…")+'</div></div>';
+  h+='<p class="muted small" style="margin:0">Cuando una actividad es «Para todo el equipo» y tiene enlace de reunión, cada persona del equipo recibe la invitación por correo y le queda en su Google Calendar. Si cambian la fecha, la hora o el enlace, se actualiza; si se elimina, se cancela.</p>';
+  if(!d.configurado)return h+'<div class="banner" role="alert">Falta configurar Google: crea el cliente en Google Cloud y guarda sus dos secretos en el Worker (pasos en el README, sección «Invitaciones de Google Calendar»).</div></div>';
+  if(!d.conectado)return h+'<a class="btn primary" href="/api/google/conectar'+(SRV.dev?"?devUser="+encodeURIComponent(S.session):"")+'" style="align-self:flex-start">Conectar Google Calendar</a><div class="muted small">Se abre Google para que autorices con la cuenta desde la que saldrán las invitaciones.</div></div>';
+  h+='<div class="small">Las invitaciones salen desde <b>'+esc(d.cuenta||"tu cuenta de Google")+'</b>.</div>';
+  if(u)h+='<div class="small">'+(u.ok?'Última: «'+esc(u.titulo)+'» '+esc(u.accion||"")+' el '+ftime(u.en)+(u.invitados?" ("+u.invitados+" invitados)":""):'<b style="color:var(--bad)">Falló el '+ftime(u.en)+':</b> '+esc(u.motivo))+'</div>';
+  return h+'<button class="btn" data-act="gdesc" style="align-self:flex-start">'+(S.armed==="gdesc"?seguro("desconectar Google Calendar","Las reuniones nuevas ya no mandarán invitación; las que ya se mandaron se quedan en los calendarios."):"Desconectar")+'</button></div>';
+}
 var RESP={cargado:false,cargando:false,datos:null,error:"",corriendo:false};
 function cargarResp(forzar){
   if(!SRV||!isAdmin()||RESP.cargando||(RESP.cargado&&!forzar))return;
@@ -2344,7 +2364,7 @@ function tryStatus(t,k){
   var r=t.assignees.length?" · ahora: "+names(t.assignees):"";
   toast("«"+sDef(t).n+"»"+r);
 }
-var ARMABLE={deltask:1,autodel:1,delkn:1,delag:1,reset:1,delref:1,enborrar:1,ctborrar:1,delacc:1,ubaja:1};
+var ARMABLE={deltask:1,autodel:1,delkn:1,delag:1,reset:1,delref:1,enborrar:1,ctborrar:1,delacc:1,ubaja:1,gdesc:1};
 function seguro(que,permanente){return '<span class="seguro">¿Confirmas que deseas '+que+'? '+(typeof permanente==="string"?permanente:permanente===false?'Podrás restaurarla desde la papelera.':'Esta acción es permanente y no se puede deshacer.')+' Toca de nuevo para confirmar.</span>'}
 function arm(k){if(S.armed===k){S.armed=null;return true}S.armed=k;render();return false}
 var STEPS={redes:[["Redactar el texto","community"],["Diseñar la pieza","diseno"],["Aprobación del cliente","admin"],["Programar la publicación","community"]],diseno:[["Entender el brief","admin"],["Primera propuesta","diseno"],["Ajustes y entrega","diseno"]]};
@@ -2506,6 +2526,7 @@ function act(a,el){
   case"ennav":S.view="entregas";S.modal=null;S.pop=null;S.en.papelera=false;if(el.hasAttribute("data-c")){S.en.cuenta=el.getAttribute("data-c");S.en.lista=""}if(el.hasAttribute("data-l"))S.en.lista=el.getAttribute("data-l");S.toTop=true;return render();
   case"enpap":S.en.papelera=true;S.toTop=true;return render();
   case"enclear":S.en.q="";S.en.estado="";S.en.persona="";S.en.tipo="";return render();
+  case"gdesc":if(!isAdmin()||!arm("gdesc"))return;return api("google/desconectar",{}).then(function(){toast("Google Calendar desconectado");cargarGcal(true)}).catch(function(e){toast((e&&e.message)||"No se pudo desconectar")});
   case"errinicio":S.modal=null;S.pop=null;S.view="general";return render();
   case"errrecargar":return location.reload();
   case"ensubir":return abrirSubir([],{tarea:el.getAttribute("data-tarea")||"",elegir:true});
@@ -2959,6 +2980,13 @@ function cargarDelServidor(){
     if(b.mas)return sincronizar();
   });
 }
+// Al regresar de autorizar en Google: aviso, a Ajustes, y la URL queda limpia.
+function volverDeGoogle(){
+  var q=new URLSearchParams(location.search),g=q.get("google");if(!g)return;
+  S.view="ajustes";GCAL.cargado=false;
+  toast(g==="ok"?"Google Calendar conectado. Las reuniones del equipo con enlace ya mandan invitación.":"No se conectó Google Calendar: "+(q.get("motivo")||"intenta de nuevo"));
+  q.delete("google");q.delete("motivo");try{history.replaceState(null,"",location.pathname+(q.toString()?"?"+q:""))}catch(e){}
+}
 function iniciar(){
   function local(){SRV=null;load();if(S.session)runDue();render()}
   if(location.protocol==="file:"||typeof fetch!=="function")return local();
@@ -2966,7 +2994,7 @@ function iniciar(){
   fetch("/api/yo",{headers:{"content-type":"application/json"},cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("sin servidor");return r.json()}).then(function(y){
     if(!y||typeof y.dev!=="boolean")throw new Error("no es el servidor");
     SRV={dev:y.dev,yo:y.yo||null,aviso:y.aviso||null,cursor:0};
-    return cargarDelServidor().then(function(){cargarCfg();if(S.session)runDue();render()});
+    return cargarDelServidor().then(function(){cargarCfg();if(S.session)runDue();volverDeGoogle();render()});
   }).catch(function(e){if(SRV){if(app)app.textContent="No se pudo entrar: "+(e&&e.message||"error del servidor");return}local()});
 }
 /* Mezcla de cambios de tres vías. La usan el servidor (functions/_merge3.js, generado) y la pantalla (08-servidor).
