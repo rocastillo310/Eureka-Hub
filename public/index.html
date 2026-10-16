@@ -1095,10 +1095,10 @@ function vCarga(sc){
 function vForm(sc){
   var Ls=sc.list?[sc.list]:S.lists.filter(function(l){return l.type===sc.type});
   var recent=sc.tasks.filter(function(t){return t.via==="form"||(t.hist[0]&&/formulario/i.test(t.hist[0].x))}).slice(-5).reverse();
-  return '<div class="two" style="align-items:start"><form id="reqForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div><h3 style="font-size:18px">Solicitud de '+(sc.type==="redes"?"contenido":"diseño")+'</h3><p class="muted small" style="margin:4px 0 0">Cualquier persona del equipo, o un cliente a través de Dirección, puede pedir trabajo aquí. La tarea entra en «'+esc(S.stat[sc.type][0].n)+'» y la automatización la asigna.</p></div>'+
+  return '<div class="two" style="align-items:start"><form id="reqForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div><h3 style="font-size:18px">Solicitud de '+(sc.type==="redes"?"contenido":"diseño")+'</h3><p class="muted small" style="margin:4px 0 0">Cualquier persona del equipo, o un cliente a través de Dirección, puede pedir trabajo aquí. La tarea entra en «'+esc(S.stat[sc.type][0].n)+'» asignada a quien elijas.</p></div>'+
   '<div class="field"><label for="rq-list">Lista</label><select id="rq-list">'+Ls.map(function(l){return '<option value="'+l.id+'">'+esc(shortName(acc(l.acc).name)+' · '+listaNombre(l))+'</option>'}).join("")+'</select></div>'+
-  '<div class="field"><label for="rq-title">¿Qué se necesita?</label><input id="rq-title" required></div><div class="two"><div class="field"><label for="rq-fmt">Formato</label><select id="rq-fmt">'+FORMATS[sc.type].map(function(f){return '<option>'+f+'</option>'}).join("")+'</select></div><div class="field"><label for="rq-date">Fecha límite</label><input id="rq-date" type="date" required value="'+iso(7)+'"></div></div>'+
-  '<div class="field"><label for="rq-prio">Prioridad</label><select id="rq-prio"><option value="">Sin prioridad</option>'+PRIO.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>'}).join("")+'</select></div><div class="field"><label for="rq-desc">Detalles</label><textarea id="rq-desc" placeholder="Contexto, referencias, tono…"></textarea></div><button class="btn primary" type="submit" style="align-self:flex-start">Enviar solicitud</button></form>'+
+  '<div class="field"><label for="rq-title">¿Qué se necesita?</label><input id="rq-title" required></div><div class="two"><div class="field"><label for="rq-fmt">Formato</label><select id="rq-fmt">'+FORMATS[sc.type].map(function(f){return '<option>'+f+'</option>'}).join("")+'</select></div></div>'+
+  '<div class="field"><label for="rq-prio">Prioridad</label><select id="rq-prio"><option value="">Sin prioridad</option>'+PRIO.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>'}).join("")+'</select></div>'+camposObligatorios("rq")+'<button class="btn primary" type="submit" style="align-self:flex-start">Enviar solicitud</button></form>'+
   '<div class="panel"><h3 style="font-size:16px;margin-bottom:8px">Solicitudes recientes</h3>'+(recent.length?'<div class="list">'+recent.map(taskLine).join("")+'</div>':'<div class="muted small" style="font-style:italic">Aún no hay solicitudes por este formulario.</div>')+'</div></div>';
 }
 
@@ -1348,6 +1348,7 @@ function vGuia(){
   ''+
   '<h3>Vistas de una lista</h3><p>Cada lista se abre en <b>Tablero</b>: tarjetas por etapa. Con el botón <b>⋯</b> de arriba a la derecha eliges otra vista; se recuerda en tu cuenta y no cambia la de nadie más.</p><ul><li><b>Lista:</b> agrupada por estado, responsable, prioridad o fecha. Edita estado, personas, fecha y prioridad sin abrir la tarea.</li><li><b>Tabla:</b> las mismas columnas con celdas de color y resumen por grupo.</li><li><b>Tablero:</b> arrastra tarjetas entre estados.</li><li><b>Calendario:</b> las tareas por fecha.</li><li><b>Carga de trabajo:</b> cuántas tareas abiertas tiene cada persona.</li><li><b>Formulario:</b> para pedir trabajo nuevo con los datos necesarios.</li></ul>'+
   ''+
+  '<h3>Crear una tarea</h3><p>Toda tarea lleva tres cosas obligatorias: <b>a quién se le asigna</b> (a ti o a otra persona), <b>qué tiene que hacer</b> y <b>para cuándo</b> (fecha de entrega). Si escribes una tarea rápida en una lista, se abre el formulario para completarla. Puedes adjuntar archivos al crearla (PDF, presentaciones, documentos) o después, dentro de la tarea, en «Archivos y entregas».</p>'+
   '<h3>Dentro de una tarea</h3><p>Las tareas de redes tienen un campo «Copy» para el texto final de la publicación, con botón para copiarlo. Junto a «Pasar a…» está «Regresar», que pide el motivo y avisa a quien la recibe. Subtareas con casilla, entregas y archivos de Drive, actualizaciones e historial de cambios. Al completar todas las subtareas, una automatización puede pasar la tarea a la siguiente etapa.</p>'+
   '<h3>Mencionar y reasignar</h3><p>En las actualizaciones de una tarea escribe @ y elige a la persona: le llega un aviso a su Bandeja y a su Mi día. @todos avisa a todo el equipo. Si una tarea no te toca, ábrela y usa «No es para mí» o «Reasignar»: le llega el aviso a quien la recibe y queda en la actividad del equipo.</p>'+
   '<h3>Actividades del equipo y reuniones</h3><p>En Mi día, «+ Actividad para el equipo» agenda algo para todas las personas (por ejemplo, una reunión). Pega el enlace de Google Meet y aparece el botón «Entrar a la reunión» en Mi día, en el Área general y en la Agenda. Para cambiar la hora o el enlace, abre la actividad y guarda. Si Dirección conectó Google Calendar, cada persona recibe la invitación por correo y le queda en su calendario; se actualiza o se cancela sola.</p>'+
@@ -2300,8 +2301,9 @@ function taskModal(t){
   var a=acc(t.acc),L=listById(t.list),st=sts(t),i=sIdx(t),ed=canEdit(t),dis=ed?"":" disabled";
   var h='<div class="row" style="justify-content:space-between;align-items:flex-start"><div style="min-width:0"><div class="muted small">'+accDot(a)+' '+esc(a.name)+' · '+esc(listaNombre(L))+' · '+TYPES[t.type]+'</div></div><button class="btn" data-act="close">Cerrar</button></div>';
   h+='<div class="field"><label for="e-title" class="sr">Título</label><input id="e-title" class="bigtitle" data-f="tf" data-k="title" data-id="'+t.id+'" value="'+esc(t.title)+'"'+dis+'></div>';
+  if(!t.assignees.length)h+='<div class="banner" role="alert">Esta tarea no tiene a nadie asignado. Elige a la persona en «Personas».</div>';
   h+='<div class="stepper">'+st.map(function(s,j){return '<div class="step '+(j<i?"done":j===i?"now":"")+'">'+esc(s.n)+'</div>'}).join("")+'</div>';
-  h+='<div class="props panel"><div class="prop"><span class="pl">Estado</span><span>'+stCell(t,"lista")+riskPill(t)+'</span></div><div class="prop"><span class="pl">Personas</span><span>'+whoCell(t)+'<span class="muted small">'+(t.assignees.length?esc(names(t.assignees)):"Sin asignar")+'</span>'+(ed?'<button class="btn small" data-act="reasignar" data-id="'+t.id+'">Reasignar</button>'+(t.assignees.indexOf(S.session)>-1?'<button class="btn small ghost" data-act="reasignar" data-id="'+t.id+'" data-mia="1">No es para mí</button>':""):"")+'</span></div><div class="prop"><span class="pl">Fecha</span><span>'+dateCell(t)+'</span></div><div class="prop"><span class="pl">Prioridad</span><span>'+prCell(t,"lista")+'</span></div>'+
+  h+='<div class="props panel"><div class="prop"><span class="pl">Estado</span><span>'+stCell(t,"lista")+riskPill(t)+'</span></div><div class="prop"><span class="pl">Personas</span><span>'+whoCell(t)+'<span class="muted small">'+(t.assignees.length?esc(names(t.assignees)):"Sin asignar")+'</span>'+(ed?'<button class="btn small" data-act="reasignar" data-id="'+t.id+'">Reasignar</button>'+(t.assignees.indexOf(S.session)>-1?'<button class="btn small ghost" data-act="reasignar" data-id="'+t.id+'" data-mia="1">No es para mí</button>':""):"")+'</span></div><div class="prop"><span class="pl">Para cuándo</span><span>'+dateCell(t)+'</span></div><div class="prop"><span class="pl">Prioridad</span><span>'+prCell(t,"lista")+'</span></div>'+
    '<div class="prop"><span class="pl">Formato</span><span><select id="e-fmt" data-f="tf" data-k="fmt" data-id="'+t.id+'"'+dis+'>'+FORMATS[t.type].map(function(f){return '<option'+(f===t.fmt?" selected":"")+'>'+f+'</option>'}).join("")+'</select></span></div><div class="prop"><span class="pl">Etiquetas</span><span><input id="e-tags" data-f="tf" data-k="tags" data-id="'+t.id+'" value="'+esc(t.tags.join(", "))+'" placeholder="campaña, reel"'+dis+'></span></div></div>';
   var pv=i>0?st[i-1]:null,nx=!isFinal(t)&&st[i+1]?st[i+1]:null;
   if(pv||nx)h+='<div class="actions">'+(pv?'<button class="btn" data-act="goback" data-id="'+t.id+'" data-k="'+pv.k+'"'+dis+'>↩ Regresar a «'+esc(pv.n)+'»</button>':"")+(nx?'<button class="btn primary" data-act="setst" data-id="'+t.id+'" data-k="'+nx.k+'"'+dis+'>Pasar a «'+esc(nx.n)+'»</button>':"")+'</div>'+(ed?"":'<div class="muted small">Solo las personas asignadas a esta tarea o Dirección pueden moverla de etapa.</div>');
@@ -2311,7 +2313,7 @@ function taskModal(t){
   h+='<div class="group"><h3>Subtareas <span class="muted small tnum">'+dn+'/'+nS+'</span></h3>'+(nS?'<span class="bar"><i style="width:'+Math.round(dn/nS*100)+'%"></i></span>':"")+t.subs.map(function(s){return '<div class="row subrow"><input type="checkbox" data-act="subtog" data-id="'+t.id+'" data-sid="'+s.id+'"'+(s.done?" checked":"")+' aria-label="Marcar subtarea"><span class="'+(s.done?"done":"")+'" style="flex:1">'+esc(s.title)+'</span>'+(s.assignee?av(s.assignee):"")+(ed?'<button class="btn small ghost" data-act="subdel" data-id="'+t.id+'" data-sid="'+s.id+'" aria-label="Quitar subtarea">Quitar</button>':"")+'</div>'}).join("")+
    (ed?'<form id="subForm" data-id="'+t.id+'" class="row" style="gap:8px;flex-wrap:wrap"><input id="sub-t" placeholder="Nueva subtarea" style="flex:1 1 160px" class="plain" autocomplete="off"><select id="sub-a" aria-label="Responsable"><option value="">Sin responsable</option>'+activos().map(function(u){return '<option value="'+u.id+'">'+esc(u.name)+'</option>'}).join("")+'</select><button class="btn" type="submit">Agregar</button></form>':"")+'</div>';
   h+='<div class="group"><h3>Archivos de Drive</h3>'+((t.files&&t.files.length)?t.files.map(function(f,j){var u=safeUrl(f.url);return '<div class="row" style="justify-content:space-between"><span>'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(f.title)+'</a>':esc(f.title))+'</span><button class="btn small ghost" data-act="drunlink" data-id="'+t.id+'" data-j="'+j+'">Quitar</button></div>'}).join(""):'<div class="muted small">Sin archivos. Vincúlalos desde la sección Drive.</div>')+'</div>';
-  if(SRV){var tEn=S.entregas.filter(function(z){return z.tareaId===t.id&&!z.borrada}).sort(enOrden);h+='<div class="group"><h3>Entregas <span class="muted small tnum">'+tEn.length+'</span></h3>'+(tEn.length?'<div class="list">'+tEn.map(enRow).join("")+'</div>':'<div class="muted small">Aún no hay archivos entregados para esta tarea.</div>')+'<button class="btn" data-act="ensubir" data-tarea="'+t.id+'" style="align-self:flex-start">'+ic("upload")+' Subir entrega</button></div>'}
+  if(SRV){var tEn=S.entregas.filter(function(z){return z.tareaId===t.id&&!z.borrada}).sort(enOrden);h+='<div class="group"><h3>Archivos y entregas <span class="muted small tnum">'+tEn.length+'</span></h3><p class="muted small" style="margin:0">PDF, presentaciones, documentos, imágenes o video de esta tarea. Cada archivo conserva sus versiones y quien aprueba recibe el aviso.</p>'+(tEn.length?'<div class="list">'+tEn.map(enRow).join("")+'</div>':'<div class="muted small">Aún no hay archivos en esta tarea.</div>')+'<button class="btn" data-act="ensubir" data-tarea="'+t.id+'" style="align-self:flex-start">'+ic("upload")+' Subir archivos (PDF, presentaciones…)</button></div>'}
   h+='<div class="group"><h3>Actualizaciones</h3>'+(t.com.length?t.com.map(function(c){return '<div class="cm"><b>'+esc((user(c.u)||{name:c.u}).name)+'</b> <span class="muted small">'+ftime(c.t)+'</span><div class="cmx">'+textoHtml(c.x)+'</div></div>'}).join(""):'<div class="muted small">Aún no hay actualizaciones.</div>')+'<div class="field"><label for="c-new">Escribe una actualización</label><textarea id="c-new" data-menciona="1" style="min-height:60px" placeholder="Escribe @ para mencionar a alguien, o @todos para avisar a todo el equipo"></textarea></div><div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn" data-act="comment" data-id="'+t.id+'">Publicar</button><span class="muted small">Mencionar:</span>'+activos().map(function(u){return '<button class="fchip" data-act="mention" data-n="'+esc(mentionTok(u))+'">@'+esc(u.name)+'</button>'}).join("")+'</div></div>';
   h+='<div class="group"><h3>Actividad</h3><div class="log">'+t.hist.slice().reverse().map(function(x){return '<div><b>'+esc((user(x.u)||{name:x.u}).name)+'</b> · '+ftime(x.t)+'<br>'+esc(x.x)+'</div>'}).join("")+'</div></div>';
   if(isAdmin())h+='<button class="btn danger" data-act="deltask" data-id="'+t.id+'" style="align-self:flex-start">'+(S.armed==="deltask"+t.id?seguro("eliminar esta tarea"):"Eliminar tarea")+'</button>';
@@ -2321,12 +2323,36 @@ function whyModal(m){
   var t=taskById(m.id),d=statName(t.type,m.to);
   return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Regresar tarea</h2><button class="btn" data-act="open" data-id="'+t.id+'">Cancelar</button></div><form id="whyForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div><b>'+esc(t.title)+'</b><div class="muted small">De «'+esc(sDef(t).n)+'» a «'+esc(d)+'»</div></div><div class="field"><label for="why-t">Motivo (obligatorio)</label><input id="why-t" required></div><button class="btn primary" type="submit" style="align-self:flex-start">Regresar</button></form>';
 }
+// Toda tarea hecha a mano lleva responsable, qué hay que hacer y para cuándo (lo pidió Dirección, aplica a todos).
+var ACEPTA_ARCHIVOS=".pdf,.ppt,.pptx,.key,.odp,.doc,.docx,.pages,.xls,.xlsx,.numbers,.odt,.ods,.txt,.csv,.rtf,.png,.jpg,.jpeg,.gif,.webp,.heic,.svg,.mp4,.mov,.m4v,.webm,.mp3,.wav,.m4a,.zip,.rar,.7z";
+function quienOpts(sel){
+  var yo=me();
+  return '<option value="" disabled'+(sel?"":" selected")+'>Elige a quién se le asigna…</option><option value="'+yo.id+'"'+(sel===yo.id?" selected":"")+'>Yo ('+esc(yo.name)+')</option>'+
+    activos().filter(function(u){return u.id!==yo.id}).map(function(u){return '<option value="'+u.id+'"'+(sel===u.id?" selected":"")+'>'+esc(u.name)+'</option>'}).join("");
+}
+function camposObligatorios(pre,m){
+  m=m||{};
+  return '<div class="two"><div class="field"><label for="'+pre+'-who">¿A quién se le asigna? *</label><select id="'+pre+'-who" required>'+quienOpts(m.who||"")+'</select></div>'+
+    '<div class="field"><label for="'+pre+'-date">¿Para cuándo? (fecha de entrega) *</label><input id="'+pre+'-date" type="date" required value="'+esc(m.date||"")+'"></div></div>'+
+    '<div class="field"><label for="'+pre+'-desc">¿Qué tiene que hacer? *</label><textarea id="'+pre+'-desc" required style="min-height:80px" placeholder="Describe lo que hay que hacer, para quién y cómo se entrega. Puedes pegar enlaces.">'+esc(m.desc||"")+'</textarea></div>'+
+    (SRV?'<div class="field"><label for="'+pre+'-files">Archivos para la tarea (opcional)</label><input id="'+pre+'-files" type="file" multiple accept="'+ACEPTA_ARCHIVOS+'"><span class="muted small">PDF, presentaciones (PowerPoint, Keynote), documentos, hojas de cálculo, imágenes o video'+(CFG?' · hasta '+fbytes(CFG.maxBytes)+' cada uno':"")+'. Se guardan en la tarea y en Entregas.</span></div>':"");
+}
+function faltaObligatorio(pre){
+  var who=val(pre+"-who"),date=val(pre+"-date"),desc=(val(pre+"-desc")||"").trim();
+  if(!who)return "Elige a quién se le asigna la tarea";
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return "Elige para cuándo se tiene que entregar";
+  if(desc.length<5)return "Describe qué tiene que hacer";
+  return "";
+}
+// Los archivos elegidos se leen ANTES de cerrar el formulario; después de crear la tarea se abre la subida ya ligada a ella.
+function archivosDe(pre){var fi=document.getElementById(pre+"-files");return fi&&fi.files?[].slice.call(fi.files):[]}
+function subirArchivos(fs,t){if(fs.length&&SRV)abrirSubir(fs,{tarea:t.id})}
 function newTaskModal(){
   var m=S.modal,sc=(S.view==="list")?scope():null,def=m.list||(sc&&sc.list?sc.list.id:""),dAcc=m.acc||(sc&&sc.space?sc.space.id:"");
   var Ls=S.lists.filter(function(l){return !dAcc||l.acc===dAcc||def===l.id});
   if(!Ls.length)Ls=S.lists;
   var cur=listById(def)||(sc&&sc.all?S.lists.find(function(l){return l.type===sc.type}):null)||Ls[0],ty=cur?cur.type:"redes";
-  return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Nueva tarea</h2><button class="btn" data-act="close">Cerrar</button></div><form id="newTaskForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="nt-list">Lista</label><select id="nt-list" data-f="ntlist">'+S.lists.map(function(l){return '<option value="'+l.id+'"'+(cur&&l.id===cur.id?" selected":"")+'>'+esc(shortName(acc(l.acc).name)+' · '+listaNombre(l))+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-title">Título</label><input id="nt-title" required></div><div class="two"><div class="field"><label for="nt-fmt">Formato</label><select id="nt-fmt">'+FORMATS[ty].map(function(f){return '<option>'+f+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-date">Fecha límite o de publicación</label><input id="nt-date" type="date" value="'+iso(7)+'" required></div></div><div class="two"><div class="field"><label for="nt-prio">Prioridad</label><select id="nt-prio"><option value="">Sin prioridad</option>'+PRIO.map(function(p){return '<option value="'+p.k+'">'+p.n+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-who">Responsable</label><select id="nt-who"><option value="">Automático según el estado</option>'+activos().map(function(u){return '<option value="'+u.id+'">'+esc(u.name)+'</option>'}).join("")+'</select></div></div><div class="field"><label for="nt-desc">Descripción</label><textarea id="nt-desc" style="min-height:70px"></textarea></div><label class="chk small" for="nt-steps"><input type="checkbox" id="nt-steps" checked> Agregar los pasos sugeridos como subtareas</label><button class="btn primary" type="submit">Crear en «'+esc(S.stat[ty][0].n)+'»</button></form>';
+  return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Nueva tarea</h2><button class="btn" data-act="close">Cerrar</button></div><form id="newTaskForm" class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="nt-list">Lista</label><select id="nt-list" data-f="ntlist">'+S.lists.map(function(l){return '<option value="'+l.id+'"'+(cur&&l.id===cur.id?" selected":"")+'>'+esc(shortName(acc(l.acc).name)+' · '+listaNombre(l))+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-title">Título *</label><input id="nt-title" required value="'+esc(m.title||"")+'"></div><div class="two"><div class="field"><label for="nt-fmt">Formato</label><select id="nt-fmt">'+FORMATS[ty].map(function(f){return '<option>'+f+'</option>'}).join("")+'</select></div><div class="field"><label for="nt-prio">Prioridad</label><select id="nt-prio"><option value="">Sin prioridad</option>'+PRIO.map(function(p){return '<option value="'+p.k+'"'+(m.prio===p.k?" selected":"")+'>'+p.n+'</option>'}).join("")+'</select></div></div>'+camposObligatorios("nt",m)+'<label class="chk small" for="nt-steps"><input type="checkbox" id="nt-steps" checked> Agregar los pasos sugeridos como subtareas</label><button class="btn primary" type="submit">Crear en «'+esc(S.stat[ty][0].n)+'»</button></form>';
 }
 function bloqueosCuenta(id){
   // Lo mismo que revisa el servidor (tareas, calendarios, entregas, contactos), más el tablero de marca con contenido.
@@ -2720,11 +2746,15 @@ function handleSubmit(form){
     S.kanban.cols.forEach(function(c,i){c.name=val("kc-n-"+i).trim()||c.name;c.limit=Math.max(0,Math.min(99,parseInt(val("kc-l-"+i),10)||0))});
     S.modal=null;save();toast("Columnas actualizadas");
   }else if(id==="newTaskForm"){
-    var L=listById(val("nt-list")),who=val("nt-who");
-    var nt=createTask({list:L.id,title:val("nt-title").trim(),fmt:val("nt-fmt"),date:val("nt-date"),prio:val("nt-prio")||null,assignees:who?[who]:[],desc:val("nt-desc")});
+    var L=listById(val("nt-list")),who=val("nt-who"),falta=faltaObligatorio("nt");
+    if(!val("nt-title").trim())return toast("Escribe el título de la tarea");
+    if(falta)return toast(falta);
+    var ntArch=archivosDe("nt");
+    var nt=createTask({list:L.id,title:val("nt-title").trim(),fmt:val("nt-fmt"),date:val("nt-date"),prio:val("nt-prio")||null,assignees:[who],desc:val("nt-desc").trim(),status:S.modal&&S.modal.status||undefined});
     if(document.getElementById("nt-steps")&&document.getElementById("nt-steps").checked){var Ac=acc(nt.acc);(STEPS[nt.type]||[]).forEach(function(p,i){nt.subs.push({id:"s"+nid(),title:p[0],done:false,assignee:(Ac&&Ac.team[p[1]])||""})});logT(nt,"Agregó los pasos sugeridos")}
     if(who&&who!==S.session)notify(who,"Te asignaron «"+nt.title+"»",nt.id);
     S.modal=null;save();toast("Tarea creada en «"+sDef(nt).n+"»"+(nt.assignees.length?" · "+names(nt.assignees):""));
+    subirArchivos(ntArch,nt);
   }else if(id==="renameForm"){
     var rm=S.modal,ro=rm.t==="acc"?acc(rm.id):listById(rm.id),rn=val("rn-n").trim();
     if(!ro||!rn||!isAdmin())return;
@@ -2779,9 +2809,13 @@ function handleSubmit(form){
     if(as&&as!==S.session)notify(as,"Te asignaron la subtarea «"+tt+"» en «"+st.title+"»",st.id);
     save();render();var sf=document.getElementById("sub-t");if(sf)sf.focus();
   }else if(id==="reqForm"){
-    var rl=listById(val("rq-list")),rt=val("rq-title").trim();if(!rl||!rt)return;
-    var nr=createTask({list:rl.id,title:rt,fmt:val("rq-fmt"),date:val("rq-date"),prio:val("rq-prio")||null,desc:val("rq-desc"),via:"formulario"});
-    isAdminNotify(nr);save();toast("Solicitud enviada: entró en «"+sDef(nr).n+"»");
+    var rl=listById(val("rq-list")),rt=val("rq-title").trim(),rf=faltaObligatorio("rq");if(!rl||!rt)return;
+    if(rf)return toast(rf);
+    var rw=val("rq-who"),rqArch=archivosDe("rq");
+    var nr=createTask({list:rl.id,title:rt,fmt:val("rq-fmt"),date:val("rq-date"),prio:val("rq-prio")||null,assignees:[rw],desc:val("rq-desc").trim(),via:"formulario"});
+    if(rw!==S.session)notify(rw,"Te asignaron «"+nr.title+"»",nr.id);
+    isAdminNotify(nr);save();toast("Solicitud enviada: «"+nr.title+"» para "+names(nr.assignees));
+    subirArchivos(rqArch,nr);
   }else if(id==="autoForm"){
     if(!isAdmin())return;
     var b=S.ab,tv=document.getElementById("ab-tv"),av2=document.getElementById("ab-av");
@@ -2791,12 +2825,13 @@ function handleSubmit(form){
   }else if(e.target.getAttribute&&e.target.getAttribute("data-qa")!==null&&e.target.classList.contains("qa")){
     var key=e.target.getAttribute("data-qa"),inp=e.target.querySelector("input"),ttl=inp.value.trim();if(!ttl)return;
     var sc=scope();if(!sc.list)return;
-    var o={list:sc.list.id,title:ttl};
-    if(S.q.group==="estado")o.status=key;
-    if(S.q.group==="resp"&&key!=="none")o.assignees=[key];
-    if(S.q.group==="prio"&&key!=="sin")o.prio=key;
-    inp.value="";var q=createTask(o);save();render();
-    var nx=document.getElementById("qai-"+key);if(nx)nx.focus();
+    // Ya no crea la tarea con solo el título: abre «Nueva tarea» con lo escrito para elegir a quién, qué y para cuándo.
+    var mq={kind:"newtask",list:sc.list.id,title:ttl};
+    if(S.q.group==="estado")mq.status=key;
+    if(S.q.group==="resp"&&key!=="none")mq.who=key;
+    if(S.q.group==="prio"&&key!=="sin")mq.prio=key;
+    inp.value="";S.modal=mq;render();
+    var nf=document.getElementById("nt-who");if(nf&&!nf.value)nf.focus();
   }
 }
 document.addEventListener("submit",function(e){e.preventDefault();handleSubmit(e.target)});
