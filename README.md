@@ -118,7 +118,7 @@ Toda tarea creada a mano («Nueva tarea», la fila rápida de una lista, el form
 
 ## Contactos (F4)
 
-- Vista **Contactos**: la base de datos de clientes (nombre, cargo, correo, teléfono y notas, por cuenta). Búsqueda en todas las cuentas, filtro por cuenta, y en cada cuenta su lista de contactos. Correo y WhatsApp con un toque.
+- Vista **Contactos**: la base de datos de clientes (nombre, cargo, empresa, correo, teléfono y notas). La cuenta del Hub es opcional (prospectos, proveedores o empresas que no son cuenta); el filtro tiene «Sin cuenta». Búsqueda en todas las cuentas, filtro por cuenta, y en cada cuenta su lista de contactos. Correo y WhatsApp con un toque.
 - **Permisos:** cualquiera del equipo agrega y edita; borrar lo hace Dirección o quien lo agregó. El servidor valida los campos (`src/contactos.js`) y pone quién y cuándo lo creó.
 - **CSV:** exportar (lo que se ve con el filtro) e importar. Columnas: `Cuenta, Nombre, Cargo, Correo, Teléfono, Notas`; solo «Nombre» es obligatorio. Acepta coma, punto y coma o tabulador (Excel en español usa punto y coma). Antes de importar muestra qué se crea, qué se actualiza (mismo correo, o mismo nombre sin correo, en esa cuenta) y qué filas tienen error; nunca borra ni crea cuentas. Al exportar, un dato que empiece con `=`, `@` u otro carácter de fórmula sale con un apóstrofo para que Excel no lo ejecute.
 - Son datos personales de clientes: viven solo en D1. Nunca se commitean ni se pegan en el chat.
