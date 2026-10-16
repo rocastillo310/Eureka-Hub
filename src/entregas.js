@@ -95,12 +95,12 @@ const puedeBorrar = (usuario, e) => usuario.role === 'admin' || e.creadoPor === 
 // Ajustes que decide Dirección. Valores iniciales PROVISIONALES (el prompt los deja pendientes): basta una aprobación
 // y quien subió la entrega no puede aprobarla.
 export const AJUSTES_APROBACION = { regla: 'uno', autorAprueba: false };
-async function ajustesAprobacion(env) {
+export async function ajustesAprobacion(env) {
 	const a = await leerEntidad(env, 'ajuste', 'aprobacion');
 	const d = (a && a.datos) || {};
 	return { regla: d.regla === 'todos' ? 'todos' : 'uno', autorAprueba: d.autorAprueba === true };
 }
-async function equipo(env) {
+export async function equipo(env) {
 	const r = await env.DB.prepare("SELECT datos FROM entidades WHERE tipo = 'user' AND borrado = 0").all();
 	return (r.results || []).map((f) => JSON.parse(f.datos)).filter((u) => !u.baja); // quien está dado de baja no aprueba ni recibe avisos
 }

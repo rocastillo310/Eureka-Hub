@@ -2,6 +2,7 @@
 import { manejarApi } from './api.js';
 import { respaldar } from './respaldo.js';
 import { vaciarPapeleraNotas } from './limpieza.js';
+import { archivarTerminadas, CRON_SEMANAL } from './semanal.js';
 
 export default {
 	async fetch(request, env, ctx) {
@@ -22,7 +23,9 @@ export default {
 	},
 	// Cada día a las 09:00 UTC = 3:00 a. m. en Guadalajara (cron de wrangler.jsonc): respaldo (F5) y, después,
 	// vaciar la papelera de la pizarra (notas con 7 días o más). El respaldo va primero para que las incluya.
+	// Y cada lunes a las 0:00 en Guadalajara: lo terminado sale de «Actividad del equipo» y pasa a su historial.
 	async scheduled(controller, env, ctx) {
+		if (controller.cron === CRON_SEMANAL) return ctx.waitUntil(archivarTerminadas(env));
 		ctx.waitUntil(respaldar(env, { origen: 'cron' }).then(() => vaciarPapeleraNotas(env)));
 	},
 };

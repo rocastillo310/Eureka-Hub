@@ -1341,7 +1341,7 @@ function vGuia(){
   '<h3>Entrar y salir</h3><p>Abre la dirección del Hub, escribe tu correo y pega el código que te llega (Cloudflare Access). No hay contraseña. Solo entran los correos que Dirección dio de alta en Equipo. «Salir» está junto a tu nombre.</p>'+
   '<h3>Tus datos</h3><p>Todo se guarda en el servidor y el equipo ve lo mismo al momento, desde la computadora o el teléfono. Varias personas pueden editar la misma tarea a la vez sin borrarse lo que escribió la otra. Si se va el internet, tus cambios se quedan en la pantalla y se guardan solos al volver. Cada noche se hace un respaldo de toda la información.</p>'+
   '<h3>Cómo está organizado</h3><ul><li><b>Cuentas:</b> cada cliente es un espacio, con su calendario de publicaciones y un tablero de marca (colores, tipografías, imágenes, enlaces y notas).</li><li><b>Subcarpetas:</b> dentro de una cuenta, para agrupar listas por marca o línea de productos (por ejemplo, Trufas dentro de Brizna). Cualquiera las crea con «+ Subcarpeta» en el resumen de la cuenta; mover o renombrar listas lo hace Dirección.</li><li><b>Listas:</b> una por mes de redes o por tipo de diseño.</li><li><b>Tareas y subtareas:</b> lo que alguien tiene que hacer. Cada una tiene estado, personas, fecha y prioridad.</li></ul>'+
-  '<h3>Área general</h3><p>Es la pantalla de inicio. Arriba, las actividades y reuniones del equipo con su botón «Entrar a la reunión». Abajo, lo que pasa en el equipo: quién entregó, aprobó o pidió cambios, y qué tareas se crearon, movieron o asignaron. A la derecha, «Quién tiene qué» cuenta las tareas abiertas de cada persona. Con «Pendientes de junta» pegas el mensaje de la junta (como el de WhatsApp: @Nombre: y sus pendientes con viñetas) y se vuelven tareas asignadas con aviso a cada quien.</p>'+
+  '<h3>Área general</h3><p>Es la pantalla de inicio. Arriba, las actividades y reuniones del equipo con su botón «Entrar a la reunión». Abajo, lo que pasa en el equipo: quién entregó, aprobó o pidió cambios, y qué tareas se crearon, movieron o asignaron. Cada lunes a las 0:00, lo que ya se terminó (tareas publicadas o entregadas, entregas aprobadas, y lo que se borró) sale de la actividad y queda en la pestaña «Historial». A la derecha, «Quién tiene qué» cuenta las tareas abiertas de cada persona. Con «Pendientes de junta» pegas el mensaje de la junta (como el de WhatsApp: @Nombre: y sus pendientes con viñetas) y se vuelven tareas asignadas con aviso a cada quien.</p>'+
   '<h3>Mi día, Bandeja y Panel</h3><p><b>Mi día</b> muestra tus tareas por urgencia y, en «Para ti y para el equipo», las actividades de todos y los avisos que no has leído. <b>Bandeja</b> junta todos tus avisos (menciones, asignaciones, entregas por aprobar). <b>Panel</b> resume todas las cuentas.</p>'+
   '<h3>Cómo fluye el trabajo</h3><p>Cada mes empieza con el calendario de contenidos de una cuenta (sección Calendarios). Se aprueba con el equipo y luego con el cliente. Al aprobarse se crean las tareas en la lista de redes y entran en «Redacción».</p>'+
   '<h3>Estados y automatizaciones</h3><p>Cambia el estado con un clic sobre la etiqueta de color. Cuando una tarea cambia de estado, las automatizaciones la asignan a la persona del rol correspondiente en esa cuenta y le llega un aviso a su Bandeja. Dirección puede ver, pausar y crear reglas en Automatizaciones, y renombrar o recolorear los estados con el botón Estados de cada lista.</p>'+
@@ -1807,12 +1807,12 @@ function decidirEn(id,decision){
 }
 
 /* ---------- línea de tiempo ---------- */
-var GEN_F=[["todo","Todo"],["entregas","Entregas"],["tareas","Tareas"]];
+var GEN_F=[["todo","Todo"],["entregas","Entregas"],["tareas","Tareas"],["historial","Historial"]];
 function diaDe(t){var d=new Date(t);d.setHours(12,0,0,0);var x=dayDiff(dstr(d));return x===0?"Hoy":x===-1?"Ayer":cap(d.toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long"}))}
 function horaDe(t){return new Date(t).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})}
 function actHtml(x){
   var o=x.objeto||{},a=x.cuentaId?acc(x.cuentaId):null,abre=o.tipo==="entrega"&&entById(o.id)?"enopen":o.tipo==="task"&&taskById(o.id)?"open":"";
-  var txt='<b>'+esc(uname(x.por))+'</b> '+esc(x.verbo)+' «'+esc(o.titulo)+'»'+(a?' en <b>'+esc(shortName(a.name))+'</b>':"")+(x.detalle?'<span class="muted"> · '+esc(x.detalle)+'</span>':"");
+  var txt='<b>'+esc(uname(x.por))+'</b> '+esc(x.verbo)+' «'+esc(o.titulo)+'»'+(a?' en <b>'+esc(shortName(a.name))+'</b>':"")+(x.detalle?'<span class="muted"> · '+esc(x.detalle)+'</span>':"")+(x.archivada?' <span class="pill st-publicada">Terminada</span>':"");
   var dentro=av(x.por)+'<span class="t">'+txt+'</span><span class="muted small tnum">'+horaDe(x.t)+'</span>';
   return abre?'<button class="item act" data-act="'+abre+'" data-id="'+esc(o.id)+'">'+dentro+'</button>':'<div class="item act">'+dentro+'</div>';
 }
@@ -1820,11 +1820,13 @@ function vGeneral(){
   var g=S.gen,h='<div class="head"><div><h2>Área general</h2><div class="muted">Lo que pasa en el equipo: entregas, aprobaciones y tareas</div></div><div class="actions"><button class="btn primary" data-act="junta">'+ic("list")+' Pendientes de junta</button></div></div>';
   var pe=panelEquipo();if(pe)h+='<div class="panel">'+pe+'</div>';
   h+=gruposEntregas();
-  var lista=S.actividad.filter(function(x){var t=x.objeto&&x.objeto.tipo;return g.f==="todo"||(g.f==="entregas"?t==="entrega":t!=="entrega")}).sort(function(a,b){return a.t<b.t?1:a.t>b.t?-1:0});
+  // Lo terminado sale cada lunes a las 0:00 (archivada) y se ve en «Historial».
+  var lista=S.actividad.filter(function(x){var t=x.objeto&&x.objeto.tipo;if(g.f==="historial")return !!x.archivada;if(x.archivada)return false;return g.f==="todo"||(g.f==="entregas"?t==="entrega":t!=="entrega")}).sort(function(a,b){return a.t<b.t?1:a.t>b.t?-1:0});
   var tl='<div class="panel" style="display:flex;flex-direction:column;gap:12px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3 style="font-size:16px">Actividad del equipo</h3><div class="chips" role="tablist">'+GEN_F.map(function(f){return '<button role="tab" aria-selected="'+(g.f===f[0])+'" class="fchip'+(g.f===f[0]?" on":"")+'" data-act="genf" data-v="'+f[0]+'">'+f[1]+'</button>'}).join("")+'</div></div>';
   if(!SRV)tl+='<div class="empty">La actividad del equipo aparece al usar la plataforma en línea.</div>';
-  else if(!lista.length)tl+='<div class="empty">Todavía no hay actividad. Aquí aparece cada entrega, aprobación y movimiento de tareas.</div>';
+  else if(!lista.length)tl+='<div class="empty">'+(g.f==="historial"?"Aún no hay nada en el historial. Cada lunes a las 0:00, lo que ya se terminó (tareas publicadas o entregadas, entregas aprobadas, y lo que se borró) sale de la actividad y queda aquí.":"Todavía no hay actividad. Aquí aparece cada entrega, aprobación y movimiento de tareas.")+'</div>';
   else{
+    if(g.f==="historial")tl+='<p class="muted small" style="margin:0">Lo que ya se terminó. Sale de la actividad cada lunes a las 0:00 y se queda aquí.</p>';
     var dia="";
     lista.slice(0,g.lim).forEach(function(x){var d=diaDe(x.t);if(d!==dia){tl+=(dia?'</div>':"")+'<div class="group"><h3 class="muted small">'+esc(d)+'</h3>';dia=d}tl+=actHtml(x)});
     tl+='</div>'+(lista.length>g.lim?'<button class="btn" data-act="genmas" style="align-self:flex-start">Ver más</button>':"");
