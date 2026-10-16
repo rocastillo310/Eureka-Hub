@@ -833,6 +833,7 @@ function view(){
   switch(S.view){
     case"admin":return vAdmin();
     case"tareas":return vTareas();
+    case"privado":return vPrivado();
     case"general":return vGeneral();case"contactos":return vContactos();case"dia":return vDia();case"bandeja":return vBandeja();case"agenda":return vAgenda();case"panel":return vPanel();
     case"spaces":return vSpaces();case"space":return vSpace();case"list":return vList();
     case"cals":return vCals();case"auto":return vAuto();case"pizarra":return vKanban();case"drive":return vDrive();case"equipo":return vEquipo();case"guia":return vGuia();
@@ -1354,6 +1355,24 @@ function vAdmin(){
   if(!f.length)return h+'<div class="empty">Todavía no hay cambios registrados.</div></div>';
   return h+'<div class="log">'+f.map(function(x){return '<div><b>'+esc(uname(x.por))+'</b> · '+ftime(x.t)+'<br><b>'+esc(x.accion)+'</b>'+(x.detalle?': '+esc(x.detalle):"")+'</div>'}).join("")+'</div></div>';
 }
+/* ---------- Panel privado (solo la persona de PRIVADO_DUENO, con contraseña) ---------- */
+// La llave vive solo en memoria: al recargar o cerrar la pestaña hay que volver a escribir la contraseña.
+var PRIV={llave:"",enlaces:null,error:"",ocupado:false};
+function privApi(ruta,cuerpo){
+  var h=cab();h["X-Privado"]=PRIV.llave;
+  return fetch(apiBase()+"privado/"+ruta,{method:cuerpo===undefined?"GET":"POST",headers:h,body:cuerpo===undefined?undefined:JSON.stringify(cuerpo),cache:"no-store"}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){if(!r.ok){if(r.status===401&&ruta!=="entrar"){PRIV.llave="";PRIV.enlaces=null}var e=new Error(j.error||"Error "+r.status);e.estado=r.status;throw e}return j})});
+}
+function vPrivado(){
+  var h='<div class="head"><div><h2>Panel privado</h2><div class="muted">Solo para ti. Los enlaces se abren en una pestaña nueva con tu propia sesión.</div></div>'+(PRIV.llave?'<div class="actions"><button class="btn" data-act="pvsalir">Cerrar panel</button></div>':"")+'</div>';
+  if(!SRV||!SRV.privado)return h+'<div class="empty">Este panel es privado.</div>';
+  if(!PRIV.llave)return h+'<form id="pvForm" class="panel" style="display:flex;flex-direction:column;gap:12px;max-width:420px"><div class="field"><label for="pv-clave">Contraseña</label><input id="pv-clave" type="password" inputmode="numeric" autocomplete="off" required></div>'+(PRIV.error?'<div class="banner" role="alert">'+esc(PRIV.error)+'</div>':"")+'<button class="btn primary" type="submit" style="align-self:flex-start"'+(PRIV.ocupado?" disabled":"")+'>'+(PRIV.ocupado?"Revisando…":"Entrar")+'</button></form>';
+  if(!PRIV.enlaces){privApi("enlaces").then(function(r){PRIV.enlaces=r.enlaces||[];render()}).catch(function(e){PRIV.error=e.message;render()});return h+'<div class="muted small">Cargando…</div>'}
+  h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Tus enlaces</h3>'+(PRIV.enlaces.length?'<div class="list">'+PRIV.enlaces.map(function(e,i){return '<div class="item" style="grid-template-columns:1fr auto"><span class="t">'+esc(e.nombre)+'<br><span class="muted small" style="overflow-wrap:anywhere">'+esc(e.url)+'</span></span><span class="actions"><a class="btn primary small" href="'+esc(e.url)+'" target="_blank" rel="noopener noreferrer">Abrir</a><button class="btn small ghost danger" data-act="pvquitar" data-i="'+i+'">Quitar</button></span></div>'}).join("")+'</div>':'<div class="empty">Todavía no hay enlaces.</div>')+'</div>';
+  h+='<form id="pvAdd" class="panel" style="display:flex;flex-direction:column;gap:12px"><h3>Agregar enlace</h3><div class="two"><div class="field"><label for="pv-n">Nombre</label><input id="pv-n" required maxlength="100" placeholder="Por ejemplo: Notebook de Google"></div><div class="field"><label for="pv-u">Enlace</label><input id="pv-u" required inputmode="url" placeholder="https://…"></div></div>'+(PRIV.error?'<div class="banner" role="alert">'+esc(PRIV.error)+'</div>':"")+'<button class="btn" type="submit" style="align-self:flex-start">Guardar enlace</button></form>';
+  return h;
+}
+function pvGuardar(lista){PRIV.error="";return privApi("enlaces",{enlaces:lista}).then(function(r){PRIV.enlaces=r.enlaces;toast("Enlaces guardados");render()}).catch(function(e){PRIV.error=e.message;render()})}
+
 /* ---------- Tareas: el área general de trabajo de todo el equipo (cualquier tipo de tarea) ---------- */
 var TF=[["mias","Mías"],["asigne","Que asigné"],["todas","Todas"]];
 function vTareas(){
@@ -1785,6 +1804,7 @@ function vAjustes(){
   var h='<div class="head"><div><h2>Ajustes</h2><div class="muted">Configuración y uso de la plataforma</div></div></div>';
   h+=temaPanel();
   if(!SRV)return h+'<div class="empty">Los demás ajustes aparecen al usar la plataforma en línea.</div>';
+  if(SRV&&SRV.privado)h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>'+ic("shield")+' Panel privado</h3><p class="muted small" style="margin:0">Solo tú lo ves. Pide tu contraseña y guarda enlaces privados (por ejemplo, tu notebook de Google), que se abren en una pestaña nueva con tu sesión.</p><button class="btn" data-act="nav" data-v="privado" style="align-self:flex-start">Abrir panel privado</button></div>';
   // Solo Administración ve la entrada al panel; Cloudflare vuelve a pedir el código al abrirlo.
   if(esAdm())h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>'+ic("shield")+' Panel de administración</h3><p class="muted small" style="margin:0">Personas y permisos, reglas de aprobación, Google Calendar, respaldo, almacenamiento e historial de cambios. Solo para Administración; al abrirlo se vuelve a pedir tu correo y el código.</p><a class="btn primary" href="/admin" style="align-self:flex-start">Abrir panel de administración</a></div>';
   return h;
@@ -2658,6 +2678,8 @@ function act(a,el){
   case"enpap":S.en.papelera=true;S.toTop=true;return render();
   case"enclear":S.en.q="";S.en.estado="";S.en.persona="";S.en.tipo="";return render();
   case"gdesc":if(!esAdm()||!arm("gdesc"))return;return api("google/desconectar",{}).then(function(){toast("Google Calendar desconectado");cargarGcal(true)}).catch(function(e){toast((e&&e.message)||"No se pudo desconectar")});
+  case"pvsalir":PRIV.llave="";PRIV.enlaces=null;PRIV.error="";return render();
+  case"pvquitar":if(!PRIV.enlaces)return;var pl=PRIV.enlaces.slice();pl.splice(+el.getAttribute("data-i"),1);return pvGuardar(pl);
   case"tfil":S.tf=el.getAttribute("data-v");return render();
   case"thechas":S.tfHechas=!S.tfHechas;return render();
   case"admtab":S.admTab=el.getAttribute("data-v");if(S.admTab==="historial")cargarHist(true);return render();
@@ -2778,6 +2800,13 @@ function handleSubmit(form){
     else if(cambiaPara&&rec.owner!==u0.id)notify(rec.owner,uname(u0.id)+" te agendó «"+rec.title+"», "+cuando,"");
     else if(nuevoEnlace&&rec.owner==="todos")avisarTodos(uname(u0.id)+" puso el enlace para entrar a «"+rec.title+"», "+cuando,"");
     S.agDay=rec.date;S.agMonth=rec.date.slice(0,7);S.modal=null;save();toast(ex?"Cambios guardados":"Agregado a la agenda");
+  }else if(id==="pvForm"){
+    if(PRIV.ocupado)return;PRIV.ocupado=true;PRIV.error="";var pc=val("pv-clave");render();
+    privApi("entrar",{clave:pc}).then(function(r){PRIV.ocupado=false;PRIV.llave=r.llave;PRIV.enlaces=null;render()}).catch(function(e){PRIV.ocupado=false;PRIV.error=e.message;render()});
+  }else if(id==="pvAdd"){
+    var pn=val("pv-n").trim(),pu=normalizarUrl(val("pv-u"));
+    if(!pn||!urlValida(pu))return toast("Escribe un nombre y un enlace válido");
+    pvGuardar((PRIV.enlaces||[]).concat([{nombre:pn,url:pu}]));
   }else if(id==="reasigForm"){
     reasignar();
   }else if(id==="subcForm"){
@@ -3145,7 +3174,7 @@ function iniciar(){
   fetch(apiBase()+"yo",{redirect:"manual",headers:(function(){var h={"content-type":"application/json"};try{var u=sessionStorage.getItem(KEY+"-u");if(u)h["X-Dev-User"]=u}catch(e){}return h})(),cache:"no-store"}) /* X-Dev-User solo cuenta en desarrollo (localhost) */.then(function(r){if(!r.ok)throw new Error("sin servidor");return r.json()}).then(function(y){
     if(!y||typeof y.dev!=="boolean")throw new Error("no es el servidor");
     try{sessionStorage.removeItem(KEY+"-recarga")}catch(e){}
-    SRV={dev:y.dev,yo:y.yo||null,aviso:y.aviso||null,respaldo:!!y.respaldo,cursor:0};
+    SRV={dev:y.dev,yo:y.yo||null,aviso:y.aviso||null,respaldo:!!y.respaldo,privado:!!y.privado,cursor:0};
     return cargarDelServidor().then(function(){cargarCfg();if(S.session)runDue();if(enAdmin())S.view="admin";volverDeGoogle();render()});
   }).catch(function(e){
     if(SRV){if(app)app.textContent="No se pudo entrar: "+(e&&e.message||"error del servidor");return}

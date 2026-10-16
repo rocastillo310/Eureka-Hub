@@ -14,7 +14,9 @@
 		// Repo PRIVADO de los respaldos (F5). El token va como secreto: GITHUB_TOKEN_RESPALDO.
 		"RESPALDO_REPO": "rocastillo310/eureka-hub-backups",
 		// Único usuario del Hub que ve el respaldo y recibe sus avisos (id de usuario, no correo).
-		"RESPALDO_DUENO": "rodrigo"
+		"RESPALDO_DUENO": "rodrigo",
+		// Único usuario que ve el panel privado (además necesita la contraseña, secreto PRIVADO_CLAVE).
+		"PRIVADO_DUENO": "rodrigo"
 	},
 
 	// Respaldo diario (F5). Los Cron Triggers usan UTC: 09:00 UTC = 3:00 a. m. en Guadalajara (UTC-6, sin horario de verano).

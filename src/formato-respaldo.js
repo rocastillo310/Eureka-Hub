@@ -15,7 +15,7 @@ export function armarRespaldo({ entidades, contador, meta, generado = new Date()
 		formato: FORMATO, version: 1, generado, origen,
 		contador: Number(contador) || 0,
 		// Fuera del respaldo: el estado del propio respaldo y todo lo de Google (incluye la llave del calendario).
-		meta: (meta || []).filter((m) => !/^(respaldo|google)/.test(String(m.clave))),
+		meta: (meta || []).filter((m) => !/^(respaldo|google|privado_intentos)/.test(String(m.clave))),
 		entidades: (entidades || []).map((e) => Object.fromEntries(COLUMNAS.map((c) => [c, e[c] ?? null]))),
 	};
 }

@@ -5,6 +5,7 @@ import { merge3, sj } from './merge3.js';
 import { verificarAccess } from './access.js';
 import { correosDelEquipo, correosAdministracion, sincronizarPoliticaAccess } from './access-politica.js';
 import { aEntidad, escribir, ErrorVisible, leerEntidad } from './entidades.js';
+import { esDuenoPrivado, privadoConfigurado, entrar as entrarPrivado, llaveValida, leerEnlaces, guardarEnlaces } from './privado.js';
 import { registrar, listar as listarBitacora, describirPersona, describirAjuste } from './bitacora.js';
 import { manejarEntregas } from './entregas.js';
 import { prepararContacto } from './contactos.js';
@@ -203,7 +204,7 @@ export async function manejarApi(request, env, ctx) {
 		const q = await quien(request, env);
 
 		if (ruta === 'yo' && metodo === 'GET') {
-			return resp({ dev: q.dev, yo: q.usuario ? q.usuario.id : null, aviso: q.usuario ? null : q.motivo || null, ...(esDuenoRespaldo(env, q.usuario) ? { respaldo: true } : {}) });
+			return resp({ dev: q.dev, yo: q.usuario ? q.usuario.id : null, aviso: q.usuario ? null : q.motivo || null, ...(esDuenoRespaldo(env, q.usuario) ? { respaldo: true } : {}), ...(esDuenoPrivado(env, q.usuario) ? { privado: true } : {}) });
 		}
 
 		if (ruta === 'seed' && metodo === 'POST') {
@@ -301,6 +302,23 @@ export async function manejarApi(request, env, ctx) {
 				if (!entidades.some((e) => e.tipo === r.tipo && e.id === r.id)) entidades.push(await estadoActual(env, r.tipo, r.id));
 			}
 			return resp({ entidades, cursor, mas, ...(rechazados.length ? { rechazados } : {}), ...(aviso ? { aviso } : {}) });
+		}
+
+		// Panel privado: solo la persona de PRIVADO_DUENO, con contraseña (src/privado.js). No va al historial del panel.
+		if (ruta.startsWith('privado/')) {
+			if (!q.usuario) return error(401, q.motivo || 'No autenticado');
+			if (!esDuenoPrivado(env, q.usuario)) return error(403, 'Este panel es privado');
+			if (!privadoConfigurado(env)) return error(409, 'Falta configurar la contraseña del panel privado (secreto PRIVADO_CLAVE)');
+			if (ruta === 'privado/entrar' && metodo === 'POST') {
+				const r = await entrarPrivado(env, q.usuario, (await leerJson(request, 2000)).clave);
+				return r.ok ? resp({ llave: r.llave, vence: r.vence }) : error(r.estado, r.motivo);
+			}
+			if (!(await llaveValida(env, q.usuario, request.headers.get('X-Privado')))) return error(401, 'Vuelve a escribir la contraseña del panel privado');
+			if (ruta === 'privado/enlaces' && metodo === 'GET') return resp({ enlaces: await leerEnlaces(env) });
+			if (ruta === 'privado/enlaces' && metodo === 'POST') {
+				const r = await guardarEnlaces(env, (await leerJson(request, 200_000)).enlaces);
+				return r.motivo ? error(400, r.motivo) : resp(r);
+			}
 		}
 
 		// Historial del panel de administración.
