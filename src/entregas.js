@@ -155,16 +155,19 @@ async function iniciar(request, env, usuario) {
 		baseVersion = Math.max(0, ...(e.datos.versiones || []).map((v) => v.version));
 	} else {
 		cuentaId = typeof b.cuentaId === 'string' && ID_OK.test(b.cuentaId) ? b.cuentaId : '';
+		// Archivo de una tarea: la cuenta es la de la tarea. Una tarea general puede no tener cuenta.
+		const tarea = b.tareaId && ID_OK.test(String(b.tareaId)) ? await leerEntidad(env, 'task', String(b.tareaId)) : null;
+		const sinCuenta = !!(tarea && tarea.datos && !tarea.borrado && tarea.datos.type === 'general' && !tarea.datos.acc && !cuentaId);
 		const cuenta = cuentaId ? await leerEntidad(env, 'account', cuentaId) : null;
-		if (!cuenta || !cuenta.datos) return error(400, 'Elige una cuenta que exista');
+		if (!sinCuenta && (!cuenta || !cuenta.datos)) return error(400, 'Elige una cuenta que exista');
 		if (b.listaId) {
 			const l = ID_OK.test(String(b.listaId)) ? await leerEntidad(env, 'list', String(b.listaId)) : null;
 			if (!l || !l.datos || l.datos.acc !== cuentaId) return error(400, 'Esa lista no es de la cuenta elegida');
 			listaId = String(b.listaId);
 		}
 		if (b.tareaId) {
-			const t = ID_OK.test(String(b.tareaId)) ? await leerEntidad(env, 'task', String(b.tareaId)) : null;
-			if (!t || !t.datos || t.datos.acc !== cuentaId) return error(400, 'Esa tarea no es de la cuenta elegida');
+			const t = tarea;
+			if (!t || !t.datos || (t.datos.acc || '') !== cuentaId) return error(400, 'Esa tarea no es de la cuenta elegida');
 			tareaId = String(b.tareaId);
 		}
 		entregaId = nuevoId('e');
@@ -187,7 +190,7 @@ async function iniciar(request, env, usuario) {
 	}
 	if (!version) return error(409, 'Otra persona está subiendo una versión de esta entrega. Intenta de nuevo.');
 
-	const r2Key = `entregas/${cuentaId}/${entregaId}/${version}-${nombreSeguro(archivo)}`;
+	const r2Key = `entregas/${cuentaId || 'general'}/${entregaId}/${version}-${nombreSeguro(archivo)}`;
 	try {
 		const mpu = await env.ENTREGAS.createMultipartUpload(r2Key, {
 			httpMetadata: { contentType: mime },
