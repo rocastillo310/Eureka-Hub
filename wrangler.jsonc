@@ -18,7 +18,8 @@
 	},
 
 	// Respaldo diario (F5). Los Cron Triggers usan UTC: 09:00 UTC = 3:00 a. m. en Guadalajara (UTC-6, sin horario de verano).
-	"triggers": { "crons": ["0 9 * * *"] },
+	// Lunes 06:00 UTC = lunes 0:00 en Guadalajara: limpieza semanal del Área general (src/semanal.js).
+	"triggers": { "crons": ["0 9 * * *", "0 6 * * 1"] },
 
 	"assets": {
 		"directory": "./public",
