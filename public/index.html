@@ -414,6 +414,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px;color:
 .tchk{display:flex;align-items:center;padding:0 2px;cursor:pointer}.tchk input{width:20px;height:20px;cursor:pointer}
 .tline.hecha .item .t,.eqrow.hecha .t{text-decoration:line-through;color:var(--muted)}
 .rchk{white-space:nowrap}.hecho-chk{align-self:flex-start}
+.acceso{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px 24px}.acceso h3{display:flex;align-items:center;gap:8px;margin:0 0 4px}.acceso p{margin:0}.acceso .btn{white-space:nowrap;min-width:250px;justify-content:center;text-align:center}
+@media (max-width:640px){.acceso{grid-template-columns:1fr}.acceso .btn{justify-self:start;min-width:0}}
 .dropzone{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;text-align:center;border:2px dashed var(--line);border-radius:12px;padding:18px;color:var(--muted);cursor:pointer;background:var(--surface);width:100%;font:inherit}
 .dropzone:hover,.dropzone:focus-within,body.arrastrando .dropzone{border-color:var(--accent);color:var(--accent)}
 body.arrastrando main{outline:3px dashed var(--accent);outline-offset:-6px}
@@ -1804,9 +1806,13 @@ function vAjustes(){
   var h='<div class="head"><div><h2>Ajustes</h2><div class="muted">Configuración y uso de la plataforma</div></div></div>';
   h+=temaPanel();
   if(!SRV)return h+'<div class="empty">Los demás ajustes aparecen al usar la plataforma en línea.</div>';
-  if(SRV&&SRV.privado)h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>'+ic("shield")+' Panel privado</h3><p class="muted small" style="margin:0">Solo tú lo ves. Pide tu contraseña y guarda enlaces privados (por ejemplo, tu notebook de Google), que se abren en una pestaña nueva con tu sesión.</p><button class="btn" data-act="nav" data-v="privado" style="align-self:flex-start">Abrir panel privado</button></div>';
+  // Paneles con acceso restringido: primero Administración, debajo el privado. Misma forma para los dos.
+  var acceso=function(titulo,texto,boton){return '<div class="panel acceso"><div><h3>'+ic("shield")+' '+titulo+'</h3><p class="muted small">'+texto+'</p></div>'+boton+'</div>'};
+  var pan=[];
   // Solo Administración ve la entrada al panel; Cloudflare vuelve a pedir el código al abrirlo.
-  if(esAdm())h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>'+ic("shield")+' Panel de administración</h3><p class="muted small" style="margin:0">Personas y permisos, reglas de aprobación, Google Calendar, respaldo, almacenamiento e historial de cambios. Solo para Administración; al abrirlo se vuelve a pedir tu correo y el código.</p><a class="btn primary" href="/admin" style="align-self:flex-start">Abrir panel de administración</a></div>';
+  if(esAdm())pan.push(acceso("Panel de administración","Personas y permisos, reglas, Google Calendar, respaldo, almacenamiento e historial de cambios. Solo para Administración; al abrirlo se vuelve a pedir tu correo y el código.",'<a class="btn primary" href="/admin">Abrir panel de administración</a>'));
+  if(SRV.privado)pan.push(acceso("Panel privado","Solo tú lo ves. Pide tu contraseña y guarda enlaces privados (por ejemplo, tu notebook de Google), que se abren en una pestaña nueva con tu sesión.",'<button class="btn primary" data-act="nav" data-v="privado">Abrir panel privado</button>'));
+  if(pan.length)h+='<div class="group"><h3 class="muted small">Paneles con acceso restringido</h3>'+pan.join("")+'</div>';
   return h;
 }
 function almPanel(){
