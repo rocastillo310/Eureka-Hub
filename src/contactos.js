@@ -3,7 +3,7 @@
 // quien los creó. El servidor valida la forma y estampa quién y cuándo los creó.
 
 // La cuenta es opcional (prospectos, proveedores o contactos de una empresa que no es cuenta); «empresa» es texto libre.
-const CAMPOS = { id: 80, cuentaId: 80, nombre: 200, cargo: 120, empresa: 120, correo: 200, telefono: 60, notas: 4000, creadoPor: 80, creadoEn: 40 };
+const CAMPOS = { id: 80, cuentaId: 80, nombre: 200, cargo: 120, empresa: 120, correo: 200, telefono: 60, notas: 4000, creadoPor: 80, creadoEn: 40, waPrimeroEn: 40, waPrimeroPor: 80 };
 const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Devuelve el motivo del rechazo, o null si los datos son válidos.
