@@ -414,6 +414,8 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px;color:
 .tchk{display:flex;align-items:center;padding:0 2px;cursor:pointer}.tchk input{width:20px;height:20px;cursor:pointer}
 .tline.hecha .item .t,.eqrow.hecha .t{text-decoration:line-through;color:var(--muted)}
 .rchk{white-space:nowrap}.hecho-chk{align-self:flex-start}
+.acceso{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px 24px}.acceso h3{display:flex;align-items:center;gap:8px;margin:0 0 4px}.acceso p{margin:0}.acceso .btn{white-space:nowrap;min-width:250px;justify-content:center;text-align:center}
+@media (max-width:640px){.acceso{grid-template-columns:1fr}.acceso .btn{justify-self:start;min-width:0}}
 .dropzone{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;text-align:center;border:2px dashed var(--line);border-radius:12px;padding:18px;color:var(--muted);cursor:pointer;background:var(--surface);width:100%;font:inherit}
 .dropzone:hover,.dropzone:focus-within,body.arrastrando .dropzone{border-color:var(--accent);color:var(--accent)}
 body.arrastrando main{outline:3px dashed var(--accent);outline-offset:-6px}
@@ -1345,7 +1347,7 @@ function vAdmin(){
   var t=S.admTab||"personas";
   h+='<div class="vtabs" role="tablist">'+ADM_TABS.map(function(x){return '<button role="tab" aria-selected="'+(t===x[0])+'" class="'+(t===x[0]?"on":"")+'" data-act="admtab" data-v="'+x[0]+'">'+x[1]+'</button>'}).join("")+'</div>';
   if(t==="personas")return h+'<p class="muted small" style="margin:0">Niveles: <b>Administración</b> controla todo (este panel); <b>Dirección</b> maneja cuentas, tareas, entregas y automatizaciones; el resto del <b>equipo</b>, su trabajo. «Rol» define a quién le asignan las automatizaciones.</p>'+vEquipo(true);
-  if(t==="reglas")return h+ajAprobPanel();
+  if(t==="reglas")return h+ajAprobPanel()+waPanel();
   if(t==="integraciones"){cargarCfg();return h+googlePanel()+respPanel()+almPanel()}
   cargarHist();
   var f=ADMH.filas;
@@ -1804,9 +1806,13 @@ function vAjustes(){
   var h='<div class="head"><div><h2>Ajustes</h2><div class="muted">Configuración y uso de la plataforma</div></div></div>';
   h+=temaPanel();
   if(!SRV)return h+'<div class="empty">Los demás ajustes aparecen al usar la plataforma en línea.</div>';
-  if(SRV&&SRV.privado)h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>'+ic("shield")+' Panel privado</h3><p class="muted small" style="margin:0">Solo tú lo ves. Pide tu contraseña y guarda enlaces privados (por ejemplo, tu notebook de Google), que se abren en una pestaña nueva con tu sesión.</p><button class="btn" data-act="nav" data-v="privado" style="align-self:flex-start">Abrir panel privado</button></div>';
+  // Paneles con acceso restringido: primero Administración, debajo el privado. Misma forma para los dos.
+  var acceso=function(titulo,texto,boton){return '<div class="panel acceso"><div><h3>'+ic("shield")+' '+titulo+'</h3><p class="muted small">'+texto+'</p></div>'+boton+'</div>'};
+  var pan=[];
   // Solo Administración ve la entrada al panel; Cloudflare vuelve a pedir el código al abrirlo.
-  if(esAdm())h+='<div class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>'+ic("shield")+' Panel de administración</h3><p class="muted small" style="margin:0">Personas y permisos, reglas de aprobación, Google Calendar, respaldo, almacenamiento e historial de cambios. Solo para Administración; al abrirlo se vuelve a pedir tu correo y el código.</p><a class="btn primary" href="/admin" style="align-self:flex-start">Abrir panel de administración</a></div>';
+  if(esAdm())pan.push(acceso("Panel de administración","Personas y permisos, reglas, Google Calendar, respaldo, almacenamiento e historial de cambios. Solo para Administración; al abrirlo se vuelve a pedir tu correo y el código.",'<a class="btn primary" href="/admin">Abrir panel de administración</a>'));
+  if(SRV.privado)pan.push(acceso("Panel privado","Solo tú lo ves. Pide tu contraseña y guarda enlaces privados (por ejemplo, tu notebook de Google), que se abren en una pestaña nueva con tu sesión.",'<button class="btn primary" data-act="nav" data-v="privado">Abrir panel privado</button>'));
+  if(pan.length)h+='<div class="group"><h3 class="muted small">Paneles con acceso restringido</h3>'+pan.join("")+'</div>';
   return h;
 }
 function almPanel(){
@@ -1981,6 +1987,10 @@ function crearJunta(){
   toast(sel.length+(sel.length===1?" pendiente repartido":" pendientes repartidos")+". Cada quien lo ve en su Bandeja.");
 }
 
+function waPanel(){
+  var w=(S.ajustes&&S.ajustes.whatsapp)||{};
+  return '<form id="waForm" class="panel" style="display:flex;flex-direction:column;gap:10px"><h3>Saludo de WhatsApp</h3><p class="muted small" style="margin:0">El primer WhatsApp que alguien abre a un contacto desde el Hub sale con este mensaje ya escrito; se revisa y se envía desde WhatsApp. <b>{nombre}</b> se cambia por el primer nombre del contacto.</p><div class="field"><label for="wa-saludo">Mensaje</label><textarea id="wa-saludo" maxlength="600" style="min-height:90px">'+esc(w.saludo||WA_SALUDO_DEF)+'</textarea></div>'+(w.en?'<div class="muted small">Lo cambió '+esc(uname(w.por))+' el '+ftime(w.en)+'</div>':"")+'<button class="btn" type="submit" style="align-self:flex-start">Guardar saludo</button></form>';
+}
 function ajAprobPanel(){
   var a=ajAprob(),adm=esAdm(),dis=adm?"":" disabled",ap=activos().filter(function(u){return u.aprueba}),dec=S.ajustes&&S.ajustes.aprobacion&&S.ajustes.aprobacion.decidido;
   return '<div class="panel" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>Aprobación de entregas</h3>'+(dec?'<span class="pill st-publicada">Decidido por '+esc(uname(dec.por))+' el '+ftime(dec.en)+'</span>':'<span class="pill st-redaccion">Provisional: falta que Administración lo decida</span>')+'</div>'+
@@ -2024,12 +2034,18 @@ function ctFiltrar(){
     return norm([k.nombre,k.cargo,k.empresa,k.correo,k.telefono,k.notas,a&&a.name].join(" ")).indexOf(q)>-1||(soloDigitos(q).length>3&&soloDigitos(k.telefono).indexOf(soloDigitos(q))>-1);
   }).sort(ctOrden);
 }
+/* WhatsApp: la primera vez que alguien abre el chat de un contacto desde el Hub, el mensaje sale con el saludo de
+   Eureka Hub ya escrito (se revisa y se envía en WhatsApp). Después se abre vacío. El Hub no puede ver el historial de
+   WhatsApp: «primera vez» quiere decir que nadie lo ha abierto desde aquí (waPrimeroEn). */
+var WA_SALUDO_DEF="¡Hola, {nombre}! Somos Eureka Hub, agencia creativa. Te escribimos para ponernos en contacto contigo y platicar sobre cómo podemos ayudarte. ¿Tienes unos minutos?";
+function waSaludo(k){var t=(S.ajustes&&S.ajustes.whatsapp&&S.ajustes.whatsapp.saludo)||WA_SALUDO_DEF,n=String(k.nombre||"").trim().split(/\s+/)[0]||"";return t.replace(/\{nombre\}/g,n).replace(/,\s*!/g,"!").replace(/¡Hola\s*!/,"¡Hola!")}
+function waUrl(k){var d=soloDigitos(k.telefono),num=d.length===10?"52"+d:d;return "https://wa.me/"+num+(k.waPrimeroEn?"":"?text="+encodeURIComponent(waSaludo(k)))}
 function ctRow(k,sinCuenta){
   var a=acc(k.cuentaId),d=soloDigitos(k.telefono);
   return '<div class="item ctrow"><button class="btn ghost t" data-act="ctopen" data-id="'+k.id+'">'+esc(k.nombre)+(k.cargo?' <span class="muted small">· '+esc(k.cargo)+'</span>':"")+'</button><span class="actions">'+
     (k.correo?'<a class="btn small" href="mailto:'+esc(k.correo)+'" title="Escribir a '+esc(k.correo)+'">Correo</a>':"")+
-    (d.length>=10?'<a class="btn small" href="https://wa.me/'+(d.length===10?"52"+d:d)+'" target="_blank" rel="noopener" title="WhatsApp">WhatsApp</a>':"")+
-    '</span><span class="meta">'+(sinCuenta||!a?"":accDot(a)+esc(shortName(a.name))+' · ')+(k.empresa&&(!a||norm(k.empresa)!==norm(a.name))?esc(k.empresa)+' · ':"")+(k.correo?esc(k.correo):"")+(k.correo&&k.telefono?' · ':"")+(k.telefono?'<a href="tel:'+esc(k.telefono.replace(/[^\d+]/g,""))+'">'+esc(k.telefono)+'</a>':"")+(!k.correo&&!k.telefono?'<span>Sin correo ni teléfono</span>':"")+'</span></div>';
+    (d.length>=10?'<a class="btn small" href="'+esc(waUrl(k))+'" target="_blank" rel="noopener" data-act="ctwa" data-id="'+k.id+'" title="'+(k.waPrimeroEn?"Abrir el chat de WhatsApp":"Primer mensaje: se abre con el saludo de Eureka Hub ya escrito")+'">WhatsApp'+(k.waPrimeroEn?"":" · saludo")+'</a>':"")+
+    '<button class="btn small" data-act="ctopen" data-id="'+k.id+'" aria-label="Editar a '+esc(k.nombre)+'">Editar</button></span><span class="meta">'+(sinCuenta||!a?"":accDot(a)+esc(shortName(a.name))+' · ')+(k.empresa&&(!a||norm(k.empresa)!==norm(a.name))?esc(k.empresa)+' · ':"")+(k.correo?esc(k.correo):"")+(k.correo&&k.telefono?' · ':"")+(k.telefono?'<a href="tel:'+esc(k.telefono.replace(/[^\d+]/g,""))+'">'+esc(k.telefono)+'</a>':"")+(!k.correo&&!k.telefono?'<span>Sin correo ni teléfono</span>':"")+'</span></div>';
 }
 function vContactos(){
   var f=S.ct,h='<div class="head"><div><h2>Contactos</h2><div class="muted">La base de datos de clientes: con quién tratamos en cada cuenta.</div></div><div class="actions">'+(SRV?'<button class="btn" data-act="ctimp">Importar CSV</button><button class="btn" data-act="ctexp">Exportar CSV</button><button class="btn primary" data-act="ctnuevo">+ Nuevo contacto</button>':"")+'</div></div>';
@@ -2052,13 +2068,13 @@ function ctModal(m){
   if(m.id&&!k)return '<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">Contacto</h2>'+cerrar+'</div><div class="empty">Este contacto ya no existe.</div>';
   var d=k||{cuentaId:m.acc||(S.ct.cuenta!=="_"?S.ct.cuenta:"")||cuentaActual()||"",nombre:"",cargo:"",empresa:"",correo:"",telefono:"",notas:""};
   var cuentas=S.accounts.slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"es")});
-  var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(k?"Contacto":"Nuevo contacto")+'</h2>'+cerrar+'</div><form id="ctForm" class="panel" style="display:flex;flex-direction:column;gap:12px">';
+  var h='<div class="row" style="justify-content:space-between"><h2 style="font-size:22px">'+(k?"Editar contacto":"Nuevo contacto")+'</h2>'+cerrar+'</div><form id="ctForm" class="panel" style="display:flex;flex-direction:column;gap:12px">';
   h+='<div class="field"><label for="ct-n">Nombre</label><input id="ct-n" required maxlength="200" value="'+esc(d.nombre)+'" autocomplete="off"></div>';
   h+='<div class="two"><div class="field"><label for="ct-cargo">Cargo</label><input id="ct-cargo" maxlength="120" value="'+esc(d.cargo||"")+'" placeholder="Dueña, gerente de marca…"></div><div class="field"><label for="ct-emp">Empresa</label><input id="ct-emp" maxlength="120" value="'+esc(d.empresa||"")+'" placeholder="Por ejemplo: Citroarom"></div></div><div class="two"><div class="field"><label for="ct-acc">Cuenta del Hub (opcional)</label><select id="ct-acc"><option value="">Sin cuenta (prospecto, proveedor u otro)</option>'+cuentas.map(function(a){return '<option value="'+a.id+'"'+(a.id===d.cuentaId?" selected":"")+'>'+esc(a.name)+'</option>'}).join("")+'</select></div></div>';
   h+='<div class="two"><div class="field"><label for="ct-mail">Correo</label><input id="ct-mail" type="email" maxlength="200" value="'+esc(d.correo||"")+'" autocapitalize="none" spellcheck="false"></div><div class="field"><label for="ct-tel">Teléfono</label><input id="ct-tel" type="tel" maxlength="60" value="'+esc(d.telefono||"")+'" placeholder="33 1234 5678"></div></div>';
   h+='<div class="field"><label for="ct-notas">Notas</label><textarea id="ct-notas" maxlength="4000" placeholder="Horario, cómo prefiere que le contacten, a quién copiar…">'+esc(d.notas||"")+'</textarea>'+enlacesHtml(d.notas)+'</div>';
   h+='<div class="err" id="cterr" role="alert"></div><button class="btn primary" type="submit" style="align-self:flex-start">'+(k?"Guardar cambios":"Agregar contacto")+'</button></form>';
-  if(k)h+='<div class="muted small">Lo agregó '+esc(uname(k.creadoPor))+(k.creadoEn?' el '+ftime(k.creadoEn):"")+'.</div>'+(puedeBorrarCt(k)?'<button class="btn danger" data-act="ctborrar" data-id="'+k.id+'" style="align-self:flex-start">'+(S.armed==="ctborrar"+k.id?seguro("eliminar este contacto"):"Borrar contacto")+'</button>':"");
+  if(k)h+='<div class="muted small">Lo agregó '+esc(uname(k.creadoPor))+(k.creadoEn?' el '+ftime(k.creadoEn):"")+'.'+(k.waPrimeroEn?' El primer WhatsApp (con saludo) lo abrió '+esc(uname(k.waPrimeroPor))+' el '+ftime(k.waPrimeroEn):(soloDigitos(k.telefono).length>=10?' Aún no se le escribe por WhatsApp desde el Hub: el primero sale con el saludo de Eureka Hub.':""))+'</div>'+(puedeBorrarCt(k)?'<button class="btn danger" data-act="ctborrar" data-id="'+k.id+'" style="align-self:flex-start">'+(S.armed==="ctborrar"+k.id?seguro("eliminar este contacto"):"Borrar contacto")+'</button>':"");
   return h;
 }
 function guardarCt(){
@@ -2679,6 +2695,10 @@ function act(a,el){
   case"gdesc":if(!esAdm()||!arm("gdesc"))return;return api("google/desconectar",{}).then(function(){toast("Google Calendar desconectado");cargarGcal(true)}).catch(function(e){toast((e&&e.message)||"No se pudo desconectar")});
   case"pvsalir":PRIV.llave="";PRIV.enlaces=null;PRIV.error="";return render();
   case"pvquitar":if(!PRIV.enlaces)return;var pl=PRIV.enlaces.slice();pl.splice(+el.getAttribute("data-i"),1);return pvGuardar(pl);
+  case"ctwa":
+    // No se vuelve a pintar aquí: el enlace tiene que seguir en la página para que se abra WhatsApp.
+    var kw=contacto(id);if(kw&&!kw.waPrimeroEn){kw.waPrimeroEn=nowIso();kw.waPrimeroPor=S.session;save();setTimeout(render,400)}
+    return;
   case"tfil":S.tf=el.getAttribute("data-v");return render();
   case"thechas":S.tfHechas=!S.tfHechas;return render();
   case"admtab":S.admTab=el.getAttribute("data-v");if(S.admTab==="historial")cargarHist(true);return render();
@@ -2799,6 +2819,10 @@ function handleSubmit(form){
     else if(cambiaPara&&rec.owner!==u0.id)notify(rec.owner,uname(u0.id)+" te agendó «"+rec.title+"», "+cuando,"");
     else if(nuevoEnlace&&rec.owner==="todos")avisarTodos(uname(u0.id)+" puso el enlace para entrar a «"+rec.title+"», "+cuando,"");
     S.agDay=rec.date;S.agMonth=rec.date.slice(0,7);S.modal=null;save();toast(ex?"Cambios guardados":"Agregado a la agenda");
+  }else if(id==="waForm"){
+    if(!esAdm())return deny();
+    var ws=val("wa-saludo").trim();if(ws.length<5)return toast("Escribe el saludo");
+    S.ajustes.whatsapp={saludo:ws.slice(0,600),por:S.session,en:nowIso()};save();toast("Saludo de WhatsApp guardado");render();
   }else if(id==="pvForm"){
     if(PRIV.ocupado)return;PRIV.ocupado=true;PRIV.error="";var pc=val("pv-clave");render();
     privApi("entrar",{clave:pc}).then(function(r){PRIV.ocupado=false;PRIV.llave=r.llave;PRIV.enlaces=null;render()}).catch(function(e){PRIV.ocupado=false;PRIV.error=e.message;render()});
