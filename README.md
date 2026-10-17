@@ -123,6 +123,10 @@ Toda tarea creada a mano («Nueva tarea», la fila rápida de una lista, el form
 - **CSV:** exportar (lo que se ve con el filtro) e importar. Columnas: `Cuenta, Nombre, Cargo, Correo, Teléfono, Notas`; solo «Nombre» es obligatorio. Acepta coma, punto y coma o tabulador (Excel en español usa punto y coma). Antes de importar muestra qué se crea, qué se actualiza (mismo correo, o mismo nombre sin correo, en esa cuenta) y qué filas tienen error; nunca borra ni crea cuentas. Al exportar, un dato que empiece con `=`, `@` u otro carácter de fórmula sale con un apóstrofo para que Excel no lo ejecute.
 - Son datos personales de clientes: viven solo en D1. Nunca se commitean ni se pegan en el chat.
 
+## Drive y enlaces de Google
+
+Los enlaces de Google (Drive, Docs, Meet y Calendar), la carpeta del equipo en la sección Drive y las carpetas de las cuentas se abren con la cuenta de Google de quien entró al Hub: se les agrega `authuser=<su correo de acceso>`, así que no importa qué cuenta tenga el navegador por defecto. Para que funcione, cada persona necesita (1) haber iniciado sesión en Google con ese correo en su navegador al menos una vez y (2) que la carpeta esté compartida con ese mismo correo. Si Google dice «You need access», falta lo segundo: quien es dueño de la carpeta la comparte con ese correo.
+
 ## Tema
 
 Ajustes → **Apariencia**: claro, oscuro o «como el sistema». Se guarda por persona y se aplica antes de pintar la pantalla.
